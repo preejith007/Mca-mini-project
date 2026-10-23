@@ -26,15 +26,23 @@
                 <span>Smart Scrap Collection System</span>
             </div>
         </div>
-        <div class="nav-links">
-            <a href="/"><i class="fa-solid fa-house"></i> Home</a>
-            <a href="/scrap-prices"><i class="fa-solid fa-tags"></i> Scrap Prices</a>
-            <a href="/request-pickup"><i class="fa-regular fa-calendar"></i> Book Pickup</a>
-            <a href="/my-pickups"><i class="fa-solid fa-boxes-packing"></i> My Pickups</a>
-        </div>
-        <div class="nav-buttons">
-            <a href="/profile" class="login-btn active"><i class="fa-regular fa-id-card"></i> {{ session.username }}</a>
-            <a href="/logout" class="signup-btn"><i class="fa-solid fa-right-from-bracket"></i> Logout</a>
+
+        <button class="mobile-nav-toggle" id="mobile-nav-toggle" aria-label="Toggle navigation" onclick="toggleMobileNav()">
+            <i class="fa-solid fa-bars"></i>
+        </button>
+
+        <div class="nav-menu-wrapper" id="nav-menu-wrapper">
+            <div class="nav-links">
+                <a href="/"><i class="fa-solid fa-house"></i> Home</a>
+                <a href="/scrap-prices"><i class="fa-solid fa-tags"></i> Scrap Prices</a>
+                <a href="/request-pickup"><i class="fa-regular fa-calendar"></i> Book Pickup</a>
+                <a href="/my-pickups"><i class="fa-solid fa-boxes-packing"></i> My Pickups</a>
+            </div>
+
+            <div class="nav-buttons">
+                <a href="/profile" class="login-btn active"><i class="fa-regular fa-id-card"></i> {{ session.username }}</a>
+                <a href="/logout" class="signup-btn"><i class="fa-solid fa-right-from-bracket"></i> Logout</a>
+            </div>
         </div>
     </nav>
 
@@ -144,6 +152,36 @@
             updateCoords(e.latlng.lat, e.latlng.lng);
         });
 
+        function toggleMobileNav() {
+            const wrapper = document.getElementById('nav-menu-wrapper');
+            const toggleBtn = document.getElementById('mobile-nav-toggle');
+            if (wrapper) {
+                wrapper.classList.toggle('active');
+                const icon = toggleBtn.querySelector('i');
+                if (icon) {
+                    if (wrapper.classList.contains('active')) {
+                        icon.className = 'fa-solid fa-xmark';
+                    } else {
+                        icon.className = 'fa-solid fa-bars';
+                    }
+                }
+            }
+        }
+        document.addEventListener('click', function(e) {
+            const navbar = document.querySelector('.navbar');
+            const wrapper = document.getElementById('nav-menu-wrapper');
+            const toggleBtn = document.getElementById('mobile-nav-toggle');
+            if (navbar && wrapper && wrapper.classList.contains('active')) {
+                if (!navbar.contains(e.target) || e.target.closest('a')) {
+                    wrapper.classList.remove('active');
+                    if (toggleBtn) {
+                        const icon = toggleBtn.querySelector('i');
+                        if (icon) icon.className = 'fa-solid fa-bars';
+                    }
+                }
+            }
+        });
+
         function detectGPSLocation() {
             if (navigator.geolocation) {
                 navigator.geolocation.getCurrentPosition(
@@ -156,12 +194,33 @@
                         alert("✓ GPS location auto-detected successfully!");
                     },
                     (error) => {
-                        alert("Unable to retrieve your GPS location. Please click on the map to set your location pin.");
-                    }
+                        fetchIPLocationProfile();
+                    },
+                    { enableHighAccuracy: false, timeout: 6000, maximumAge: 60000 }
                 );
             } else {
-                alert("Geolocation is not supported by your browser.");
+                fetchIPLocationProfile();
             }
+        }
+
+        function fetchIPLocationProfile() {
+            fetch('https://ipapi.co/json/')
+                .then(res => res.json())
+                .then(data => {
+                    if (data.latitude && data.longitude) {
+                        const lat = parseFloat(data.latitude);
+                        const lng = parseFloat(data.longitude);
+                        map.setView([lat, lng], 15);
+                        marker.setLatLng([lat, lng]);
+                        updateCoords(lat, lng);
+                        alert("✓ Location detected via Wi-Fi / IP Network (" + (data.city || 'Your Area') + ")!");
+                    } else {
+                        alert("Unable to retrieve GPS location. Please click on the map to set your location pin.");
+                    }
+                })
+                .catch(() => {
+                    alert("Unable to retrieve GPS location. Please click on the map to set your location pin.");
+                });
         }
     </script>
 </body>

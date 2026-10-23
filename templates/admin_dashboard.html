@@ -119,234 +119,242 @@
 
         <!-- TAB 1: User Management -->
         <div class="tab-content active" id="users-tab">
-            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px;">
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px; flex-wrap: wrap; gap: 12px;">
                 <h3 style="margin: 0; color: #38bdf8;"><i class="fa-solid fa-user-gear"></i> Registered System Users</h3>
                 <input type="text" id="user-search" class="search-bar-admin" placeholder="Search user by name, email, phone..." onkeyup="filterAdminTable('user-table', this.value)">
             </div>
-            <table class="admin-table" id="user-table">
-                <thead>
-                    <tr>
-                        <th>ID</th>
-                        <th>User Name</th>
-                        <th>Email Address</th>
-                        <th>Phone</th>
-                        <th>Address / City</th>
-                        <th>Account Status</th>
-                        <th>Registered Date</th>
-                        <th>Actions</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    {% for u in users %}
-                    <tr>
-                        <td>#{{ u.id }}</td>
-                        <td><strong>{{ u.username }}</strong></td>
-                        <td>{{ u.email }}</td>
-                        <td>{{ u.phone }}</td>
-                        <td>{{ u.address }}</td>
-                        <td>
-                            {% if u.account_status == 'Active' %}
-                            <span class="badge-status active">Active</span>
-                            {% else %}
-                            <span class="badge-status inactive">Deactivated</span>
-                            {% endif %}
-                        </td>
-                        <td>{{ u.created_at[:10] }}</td>
-                        <td>
-                            <form method="post" action="/admin/user/toggle-status/{{ u.id }}" style="display: inline;">
-                                <input type="hidden" name="status" value="{% if u.account_status == 'Active' %}Deactivated{% else %}Active{% endif %}">
-                                <button type="submit" class="action-btn {% if u.account_status == 'Active' %}btn-ban{% else %}btn-approve{% endif %}">
-                                    {% if u.account_status == 'Active' %}Deactivate{% else %}Activate{% endif %}
-                                </button>
-                            </form>
-                            <form method="post" action="/admin/user/delete/{{ u.id }}" style="display: inline;" onsubmit="return confirm('Delete user account permanently?');">
-                                <button type="submit" class="action-btn" style="background: #991b1b;"><i class="fa-solid fa-trash"></i></button>
-                            </form>
-                        </td>
-                    </tr>
-                    {% endfor %}
-                </tbody>
-            </table>
+            <div class="table-responsive">
+                <table class="admin-table" id="user-table">
+                    <thead>
+                        <tr>
+                            <th>ID</th>
+                            <th>User Name</th>
+                            <th>Email Address</th>
+                            <th>Phone</th>
+                            <th>Address / City</th>
+                            <th>Account Status</th>
+                            <th>Registered Date</th>
+                            <th>Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for u in users %}
+                        <tr>
+                            <td>#{{ u.id }}</td>
+                            <td><strong>{{ u.username }}</strong></td>
+                            <td>{{ u.email }}</td>
+                            <td>{{ u.phone }}</td>
+                            <td>{{ u.address }}</td>
+                            <td>
+                                {% if u.account_status == 'Active' %}
+                                <span class="badge-status active">Active</span>
+                                {% else %}
+                                <span class="badge-status inactive">Deactivated</span>
+                                {% endif %}
+                            </td>
+                            <td>{{ u.created_at[:10] }}</td>
+                            <td>
+                                <form method="post" action="/admin/user/toggle-status/{{ u.id }}" style="display: inline;">
+                                    <input type="hidden" name="status" value="{% if u.account_status == 'Active' %}Deactivated{% else %}Active{% endif %}">
+                                    <button type="submit" class="action-btn {% if u.account_status == 'Active' %}btn-ban{% else %}btn-approve{% endif %}">
+                                        {% if u.account_status == 'Active' %}Deactivate{% else %}Activate{% endif %}
+                                    </button>
+                                </form>
+                                <form method="post" action="/admin/user/delete/{{ u.id }}" style="display: inline;" onsubmit="return confirm('Delete user account permanently?');">
+                                    <button type="submit" class="action-btn" style="background: #991b1b;"><i class="fa-solid fa-trash"></i></button>
+                                </form>
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
         </div>
 
         <!-- TAB 2: Collector Management -->
         <div class="tab-content" id="collectors-tab">
-            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px;">
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px; flex-wrap: wrap; gap: 12px;">
                 <h3 style="margin: 0; color: #38bdf8;"><i class="fa-solid fa-truck-pickup"></i> Registered Scrap Collectors</h3>
                 <input type="text" id="collector-search" class="search-bar-admin" placeholder="Search collector by name, zone..." onkeyup="filterAdminTable('collector-table', this.value)">
             </div>
-            <table class="admin-table" id="collector-table">
-                <thead>
-                    <tr>
-                        <th>ID</th>
-                        <th>Collector Name</th>
-                        <th>Contact Phone</th>
-                        <th>Base Zone / Address</th>
-                        <th>Spatial Coords</th>
-                        <th>Approval</th>
-                        <th>Live Status</th>
-                        <th>Account Status</th>
-                        <th>Actions</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    {% for c in collectors %}
-                    <tr>
-                        <td>#{{ c.id }}</td>
-                        <td><strong>{{ c.username }}</strong></td>
-                        <td>{{ c.phone }}</td>
-                        <td>{{ c.address }}</td>
-                        <td><small>Lat: {{ "%.4f"|format(c.latitude) }}, Lng: {{ "%.4f"|format(c.longitude) }}</small></td>
-                        <td>
-                            {% if c.approval_status == 'Approved' %}
-                            <span class="badge-status approved">Approved</span>
-                            {% else %}
-                            <span class="badge-status pending">Pending Approval</span>
-                            {% endif %}
-                        </td>
-                        <td>
-                            {% if c.availability_status == 1 %}
-                            <span style="color: #34d399;">🟢 Online</span>
-                            {% else %}
-                            <span style="color: #94a3b8;">🔴 Offline</span>
-                            {% endif %}
-                        </td>
-                        <td>
-                            {% if c.account_status == 'Active' %}
-                            <span class="badge-status active">Active</span>
-                            {% else %}
-                            <span class="badge-status inactive">Banned</span>
-                            {% endif %}
-                        </td>
-                        <td>
-                            {% if c.approval_status != 'Approved' %}
-                            <form method="post" action="/admin/collector/approve/{{ c.id }}" style="display: inline;">
-                                <input type="hidden" name="approval_status" value="Approved">
-                                <button type="submit" class="action-btn btn-approve">Approve</button>
-                            </form>
-                            {% endif %}
-                            <form method="post" action="/admin/collector/toggle-status/{{ c.id }}" style="display: inline;">
-                                <input type="hidden" name="status" value="{% if c.account_status == 'Active' %}Deactivated{% else %}Active{% endif %}">
-                                <button type="submit" class="action-btn {% if c.account_status == 'Active' %}btn-ban{% else %}btn-approve{% endif %}">
-                                    {% if c.account_status == 'Active' %}Deactivate{% else %}Activate{% endif %}
-                                </button>
-                            </form>
-                        </td>
-                    </tr>
-                    {% endfor %}
-                </tbody>
-            </table>
+            <div class="table-responsive">
+                <table class="admin-table" id="collector-table">
+                    <thead>
+                        <tr>
+                            <th>ID</th>
+                            <th>Collector Name</th>
+                            <th>Contact Phone</th>
+                            <th>Base Zone / Address</th>
+                            <th>Spatial Coords</th>
+                            <th>Approval</th>
+                            <th>Live Status</th>
+                            <th>Account Status</th>
+                            <th>Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for c in collectors %}
+                        <tr>
+                            <td>#{{ c.id }}</td>
+                            <td><strong>{{ c.username }}</strong></td>
+                            <td>{{ c.phone }}</td>
+                            <td>{{ c.address }}</td>
+                            <td><small>Lat: {{ "%.4f"|format(c.latitude) }}, Lng: {{ "%.4f"|format(c.longitude) }}</small></td>
+                            <td>
+                                {% if c.approval_status == 'Approved' %}
+                                <span class="badge-status approved">Approved</span>
+                                {% else %}
+                                <span class="badge-status pending">Pending Approval</span>
+                                {% endif %}
+                            </td>
+                            <td>
+                                {% if c.availability_status == 1 %}
+                                <span style="color: #34d399;">🟢 Online</span>
+                                {% else %}
+                                <span style="color: #94a3b8;">🔴 Offline</span>
+                                {% endif %}
+                            </td>
+                            <td>
+                                {% if c.account_status == 'Active' %}
+                                <span class="badge-status active">Active</span>
+                                {% else %}
+                                <span class="badge-status inactive">Banned</span>
+                                {% endif %}
+                            </td>
+                            <td>
+                                {% if c.approval_status != 'Approved' %}
+                                <form method="post" action="/admin/collector/approve/{{ c.id }}" style="display: inline;">
+                                    <input type="hidden" name="approval_status" value="Approved">
+                                    <button type="submit" class="action-btn btn-approve">Approve</button>
+                                </form>
+                                {% endif %}
+                                <form method="post" action="/admin/collector/toggle-status/{{ c.id }}" style="display: inline;">
+                                    <input type="hidden" name="status" value="{% if c.account_status == 'Active' %}Deactivated{% else %}Active{% endif %}">
+                                    <button type="submit" class="action-btn {% if c.account_status == 'Active' %}btn-ban{% else %}btn-approve{% endif %}">
+                                        {% if c.account_status == 'Active' %}Deactivate{% else %}Activate{% endif %}
+                                    </button>
+                                </form>
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
         </div>
 
         <!-- TAB 3: Master Pickups & Payouts Ledger -->
         <div class="tab-content" id="pickups-tab">
-            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px;">
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px; flex-wrap: wrap; gap: 12px;">
                 <h3 style="margin: 0; color: #38bdf8;"><i class="fa-solid fa-list-check"></i> Master Pickup Requests Audit Trail</h3>
                 <input type="text" id="pickup-search" class="search-bar-admin" placeholder="Search request by user, ID, status..." onkeyup="filterAdminTable('pickup-table', this.value)">
             </div>
-            <table class="admin-table" id="pickup-table">
-                <thead>
-                    <tr>
-                        <th>Req #</th>
-                        <th>User Name</th>
-                        <th>Scrap Type</th>
-                        <th>Est. Weight</th>
-                        <th>Actual Weight</th>
-                        <th>Assigned Collector</th>
-                        <th>Nearest Dist</th>
-                        <th>Payout Amount</th>
-                        <th>Status</th>
-                        <th>Date & Slot</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    {% for p in pickups %}
-                    <tr>
-                        <td>#{{ p.id }}</td>
-                        <td><strong>{{ p.user_name }}</strong></td>
-                        <td>{{ p.scrap_type }}</td>
-                        <td>{{ p.estimated_weight }} kg</td>
-                        <td><strong>{% if p.actual_weight > 0 %}{{ p.actual_weight }} kg{% else %}-{% endif %}</strong></td>
-                        <td>{{ p.collector_name }}</td>
-                        <td>{{ p.distance_km }} km</td>
-                        <td>
-                            {% if p.status == 'Completed' %}
-                            <strong style="color: #34d399;">₹{{ "%.2f"|format(p.final_amount) }}</strong>
-                            {% else %}
-                            ₹{{ "%.2f"|format(p.total_price) }} (Est)
-                            {% endif %}
-                        </td>
-                        <td>
-                            {% if p.status == 'Pending' %}
-                            <span class="badge-status pending">Pending</span>
-                            {% elif p.status == 'Assigned' %}
-                            <span class="badge-status approved">Assigned</span>
-                            {% elif p.status == 'Completed' %}
-                            <span class="badge-status active">Completed</span>
-                            {% elif p.status == 'Cancelled' %}
-                            <span class="badge-status inactive">Cancelled</span>
-                            {% endif %}
-                        </td>
-                        <td><small>{{ p.pickup_date }} ({{ p.time_slot[:10] }}...)</small></td>
-                    </tr>
-                    {% endfor %}
-                </tbody>
-            </table>
+            <div class="table-responsive">
+                <table class="admin-table" id="pickup-table">
+                    <thead>
+                        <tr>
+                            <th>Req #</th>
+                            <th>User Name</th>
+                            <th>Scrap Type</th>
+                            <th>Est. Weight</th>
+                            <th>Actual Weight</th>
+                            <th>Assigned Collector</th>
+                            <th>Nearest Dist</th>
+                            <th>Payout Amount</th>
+                            <th>Status</th>
+                            <th>Date & Slot</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for p in pickups %}
+                        <tr>
+                            <td>#{{ p.id }}</td>
+                            <td><strong>{{ p.user_name }}</strong></td>
+                            <td>{{ p.scrap_type }}</td>
+                            <td>{{ p.estimated_weight }} kg</td>
+                            <td><strong>{% if p.actual_weight > 0 %}{{ p.actual_weight }} kg{% else %}-{% endif %}</strong></td>
+                            <td>{{ p.collector_name }}</td>
+                            <td>{{ p.distance_km }} km</td>
+                            <td>
+                                {% if p.status == 'Completed' %}
+                                <strong style="color: #34d399;">₹{{ "%.2f"|format(p.final_amount) }}</strong>
+                                {% else %}
+                                ₹{{ "%.2f"|format(p.total_price) }} (Est)
+                                {% endif %}
+                            </td>
+                            <td>
+                                {% if p.status == 'Pending' %}
+                                <span class="badge-status pending">Pending</span>
+                                {% elif p.status == 'Assigned' %}
+                                <span class="badge-status approved">Assigned</span>
+                                {% elif p.status == 'Completed' %}
+                                <span class="badge-status active">Completed</span>
+                                {% elif p.status == 'Cancelled' %}
+                                <span class="badge-status inactive">Cancelled</span>
+                                {% endif %}
+                            </td>
+                            <td><small>{{ p.pickup_date }} ({{ p.time_slot[:10] }}...)</small></td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
         </div>
 
         <!-- TAB 4: Complaints & Feedback Management -->
         <div class="tab-content" id="feedback-tab">
-            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px;">
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px; flex-wrap: wrap; gap: 12px;">
                 <h3 style="margin: 0; color: #38bdf8;"><i class="fa-solid fa-comments"></i> User Complaints & Collector Feedback</h3>
             </div>
-            <table class="admin-table" id="feedback-table">
-                <thead>
-                    <tr>
-                        <th>ID</th>
-                        <th>User Name</th>
-                        <th>Type</th>
-                        <th>Subject</th>
-                        <th>Message</th>
-                        <th>Rating</th>
-                        <th>Collector Involved</th>
-                        <th>Status</th>
-                        <th>Actions</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    {% for f in feedback %}
-                    <tr>
-                        <td>#{{ f.id }}</td>
-                        <td><strong>{{ f.user_name }}</strong></td>
-                        <td>
-                            {% if f.type == 'Complaint' %}
-                            <span style="color: #f87171; font-weight: bold;"><i class="fa-solid fa-triangle-exclamation"></i> Complaint</span>
-                            {% else %}
-                            <span style="color: #34d399; font-weight: bold;"><i class="fa-solid fa-star"></i> Feedback</span>
-                            {% endif %}
-                        </td>
-                        <td><strong>{{ f.subject }}</strong></td>
-                        <td style="max-width: 250px;">{{ f.message }}</td>
-                        <td>{{ "⭐" * f.rating }}</td>
-                        <td>{{ f.collector_name }}</td>
-                        <td>
-                            {% if f.status == 'Pending' %}
-                            <span class="badge-status pending">Pending</span>
-                            {% else %}
-                            <span class="badge-status active">Resolved</span>
-                            {% endif %}
-                        </td>
-                        <td>
-                            {% if f.status == 'Pending' %}
-                            <form method="post" action="/admin/complaint/resolve/{{ f.id }}" style="display: inline;">
-                                <button type="submit" class="action-btn btn-resolve"><i class="fa-solid fa-check"></i> Mark Resolved</button>
-                            </form>
-                            {% endif %}
-                        </td>
-                    </tr>
-                    {% endfor %}
-                </tbody>
-            </table>
+            <div class="table-responsive">
+                <table class="admin-table" id="feedback-table">
+                    <thead>
+                        <tr>
+                            <th>ID</th>
+                            <th>User Name</th>
+                            <th>Type</th>
+                            <th>Subject</th>
+                            <th>Message</th>
+                            <th>Rating</th>
+                            <th>Collector Involved</th>
+                            <th>Status</th>
+                            <th>Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for f in feedback %}
+                        <tr>
+                            <td>#{{ f.id }}</td>
+                            <td><strong>{{ f.user_name }}</strong></td>
+                            <td>
+                                {% if f.type == 'Complaint' %}
+                                <span style="color: #f87171; font-weight: bold;"><i class="fa-solid fa-triangle-exclamation"></i> Complaint</span>
+                                {% else %}
+                                <span style="color: #34d399; font-weight: bold;"><i class="fa-solid fa-star"></i> Feedback</span>
+                                {% endif %}
+                            </td>
+                            <td><strong>{{ f.subject }}</strong></td>
+                            <td style="max-width: 250px;">{{ f.message }}</td>
+                            <td>{{ "⭐" * f.rating }}</td>
+                            <td>{{ f.collector_name }}</td>
+                            <td>
+                                {% if f.status == 'Pending' %}
+                                <span class="badge-status pending">Pending</span>
+                                {% else %}
+                                <span class="badge-status active">Resolved</span>
+                                {% endif %}
+                            </td>
+                            <td>
+                                {% if f.status == 'Pending' %}
+                                <form method="post" action="/admin/complaint/resolve/{{ f.id }}" style="display: inline;">
+                                    <button type="submit" class="action-btn btn-resolve"><i class="fa-solid fa-check"></i> Mark Resolved</button>
+                                </form>
+                                {% endif %}
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
         </div>
     </div>
 

@@ -31,16 +31,22 @@
             </div>
         </div>
 
-        <div class="nav-links">
-            <a href="/collector/dashboard" class="active"><i class="fa-solid fa-gauge"></i> Dashboard</a>
-            <a href="#route-section"><i class="fa-solid fa-route"></i> Route Optimizer</a>
-            <a href="#pending-section"><i class="fa-solid fa-clock"></i> Available ({{ pending_pickups|length }})</a>
-            <a href="#assigned-section"><i class="fa-solid fa-clipboard-check"></i> Assignments ({{ my_pickups|length }})</a>
-        </div>
+        <button class="mobile-nav-toggle" id="mobile-nav-toggle" aria-label="Toggle navigation" onclick="toggleMobileNav()">
+            <i class="fa-solid fa-bars"></i>
+        </button>
 
-        <div class="nav-buttons">
-            <span class="collector-user-badge"><i class="fa-solid fa-user-gear"></i> {{ collector.username }}</span>
-            <a href="/collector/logout" class="signup-btn"><i class="fa-solid fa-right-from-bracket"></i> Logout</a>
+        <div class="nav-menu-wrapper" id="nav-menu-wrapper">
+            <div class="nav-links">
+                <a href="/collector/dashboard" class="active"><i class="fa-solid fa-gauge"></i> Dashboard</a>
+                <a href="#route-section"><i class="fa-solid fa-route"></i> Route Optimizer</a>
+                <a href="#pending-section"><i class="fa-solid fa-clock"></i> Available ({{ pending_pickups|length }})</a>
+                <a href="#assigned-section"><i class="fa-solid fa-clipboard-check"></i> Assignments ({{ my_pickups|length }})</a>
+            </div>
+
+            <div class="nav-buttons">
+                <span class="collector-user-badge"><i class="fa-solid fa-user-gear"></i> {{ collector.username }}</span>
+                <a href="/collector/logout" class="signup-btn"><i class="fa-solid fa-right-from-bracket"></i> Logout</a>
+            </div>
         </div>
     </nav>
 
@@ -52,17 +58,17 @@
 
         <!-- Collector Availability & Location Control Card -->
         <div class="collector-control-card">
-            <form method="post" action="/collector/update-status" style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 16px;">
-                <div style="flex: 1; min-width: 250px;">
-                    <h3 style="margin: 0 0 6px; color: #1e293b;"><i class="fa-solid fa-location-dot" style="color: #10b981;"></i> Current Collector Location & Base</h3>
-                    <p style="margin: 0; font-size: 13px; color: #64748b;">
-                        {{ collector.address }} (Lat: <strong>{{ "%.4f"|format(collector.latitude) }}</strong>, Lng: <strong>{{ "%.4f"|format(collector.longitude) }}</strong>)
+            <form method="post" action="/collector/update-status" class="control-card-form">
+                <div class="control-location-info">
+                    <h3><i class="fa-solid fa-location-dot" style="color: #10b981;"></i> Current Collector Location & Base</h3>
+                    <p>
+                        {{ collector.address }} <span class="coords-tag">(Lat: <strong>{{ "%.4f"|format(collector.latitude) }}</strong>, Lng: <strong>{{ "%.4f"|format(collector.longitude) }}</strong>)</span>
                     </p>
                 </div>
                 
-                <div style="display: flex; align-items: center; gap: 12px;">
-                    <label for="availability_status" style="font-size: 13px; font-weight: 600; color: #334155;">Status:</label>
-                    <select id="availability_status" name="availability_status" style="padding: 8px 12px; border-radius: 8px; border: 1px solid #cbd5e1;">
+                <div class="control-actions-group">
+                    <label for="availability_status" style="font-size: 13.5px; font-weight: 600; color: #334155;">Status:</label>
+                    <select id="availability_status" name="availability_status" class="status-select">
                         <option value="1" {% if collector.availability_status == 1 %}selected{% endif %}>🟢 Online / Available for Pickups</option>
                         <option value="0" {% if collector.availability_status == 0 %}selected{% endif %}>🔴 Offline / Busy</option>
                     </select>
@@ -71,8 +77,8 @@
                     <input type="hidden" id="collector_lat" name="latitude" value="{{ collector.latitude }}">
                     <input type="hidden" id="collector_lng" name="longitude" value="{{ collector.longitude }}">
                     
-                    <button type="submit" class="primary-btn" style="padding: 8px 16px; font-size: 13px;">Save Status</button>
-                    <button type="button" class="secondary-btn" onclick="updateCollectorGPS()" style="padding: 8px 14px; font-size: 13px;">
+                    <button type="submit" class="primary-btn save-status-btn">Save Status</button>
+                    <button type="button" class="secondary-btn gps-update-btn" onclick="updateCollectorGPS()">
                         <i class="fa-solid fa-crosshairs"></i> Update Live GPS
                     </button>
                 </div>
@@ -111,14 +117,7 @@
                     <p style="margin: 4px 0 0; font-size: 13px; color: #94a3b8;">Automated optimal sequence of stops starting from your current location.</p>
                 </div>
                 {% if ordered_route %}
-                {% set origin_str = collector.latitude ~ "," ~ collector.longitude %}
-                {% set dest_str = ordered_route[-1].latitude ~ "," ~ ordered_route[-1].longitude %}
-                {% set waypoints_list = [] %}
-                {% for p in ordered_route[:-1] %}
-                    {% set _ = waypoints_list.append(p.latitude ~ "," ~ p.longitude) %}
-                {% endfor %}
-                {% set waypoints_str = waypoints_list|join('|') %}
-                <a href="https://www.google.com/maps/dir/?api=1&origin={{ origin_str }}&destination={{ dest_str }}&waypoints={{ waypoints_str }}" 
+                <a href="https://www.google.com/maps/dir/?api=1&origin={{ gmaps_origin }}&destination={{ gmaps_destination }}&waypoints={{ gmaps_waypoints }}" 
                    target="_blank" class="nav-btn-gmaps">
                     <i class="fa-solid fa-map-location-dot"></i> Start Shortest Route Navigation in Google Maps
                 </a>
@@ -277,7 +276,7 @@
                                 </a>
 
                                 {% if p.status == 'Assigned' %}
-                                <button type="button" class="complete-pickup-btn" style="flex: 1.5; font-size: 12px;" onclick='openVerifyModal({{ p.id }}, {{ p.items|tojson }})'>
+                                <button type="button" class="complete-pickup-btn" style="flex: 1.5; font-size: 12px;" data-pickup-id="{{ p.id }}" data-items="{{ p.items_list|tojson }}" onclick="openVerifyModalFromBtn(this)">
                                     <i class="fa-solid fa-scale-balanced"></i> Verify & Complete
                                 </button>
                                 {% endif %}
@@ -327,18 +326,18 @@
         const routePickups = {{ ordered_route|tojson }};
 
         // Render Leaflet Route Map
-        const map = L.map('route-map').setView([collectorLat, collectorLng], 12);
+        window.map = L.map('route-map').setView([collectorLat, collectorLng], 12);
         L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
             maxZoom: 19,
             attribution: '© OpenStreetMap'
-        }).addTo(map);
+        }).addTo(window.map);
 
         // Collector Marker (Blue)
         const collectorIcon = L.divIcon({
             html: '<div style="background:#2563eb;color:#fff;width:32px;height:32px;border-radius:50%;display:flex;justify-content:center;align-items:center;box-shadow:0 0 10px rgba(0,0,0,0.5);"><i class="fa-solid fa-truck"></i></div>',
             className: ''
         });
-        L.marker([collectorLat, collectorLng], { icon: collectorIcon }).addTo(map).bindPopup("<b>Collector Location (Start)</b>");
+        window.collectorMarker = L.marker([collectorLat, collectorLng], { icon: collectorIcon }).addTo(window.map).bindPopup("<b>Collector Location (Start)</b>");
 
         const routePoints = [[collectorLat, collectorLng]];
 
@@ -349,34 +348,73 @@
                     html: `<div style="background:#10b981;color:#fff;width:28px;height:28px;border-radius:50%;display:flex;justify-content:center;align-items:center;font-weight:bold;font-size:12px;box-shadow:0 0 8px rgba(0,0,0,0.3);">${idx+1}</div>`,
                     className: ''
                 });
-                L.marker([p.latitude, p.longitude], { icon: stopIcon }).addTo(map)
+                L.marker([p.latitude, p.longitude], { icon: stopIcon }).addTo(window.map)
                  .bindPopup(`<b>Stop ${idx+1}: ${p.user_name}</b><br>${p.address}<br><b>Payout: ₹${p.total_price.toFixed(2)}</b>`);
             }
         });
 
         if (routePoints.length > 1) {
-            const polyline = L.polyline(routePoints, { color: '#38bdf8', weight: 4, dashArray: '6, 8' }).addTo(map);
-            map.fitBounds(polyline.getBounds(), { padding: [30, 30] });
+            const polyline = L.polyline(routePoints, { color: '#38bdf8', weight: 4, dashArray: '6, 8' }).addTo(window.map);
+            window.map.fitBounds(polyline.getBounds(), { padding: [30, 30] });
         }
 
-        function updateCollectorGPS() {
-            if (navigator.geolocation) {
-                navigator.geolocation.getCurrentPosition(
-                    (pos) => {
-                        document.getElementById('collector_lat').value = pos.coords.latitude.toFixed(6);
-                        document.getElementById('collector_lng').value = pos.coords.longitude.toFixed(6);
-                        alert("✓ Live GPS coordinates captured! Click 'Save Status' to update.");
-                    },
-                    () => alert("GPS detection unavailable.")
-                );
+        // Allow collector to click anywhere on map to select/update position
+        window.map.on('click', function(e) {
+            const lat = e.latlng.lat.toFixed(6);
+            const lng = e.latlng.lng.toFixed(6);
+            document.getElementById('collector_lat').value = lat;
+            document.getElementById('collector_lng').value = lng;
+            if (window.collectorMarker) {
+                window.collectorMarker.setLatLng([lat, lng]);
             }
+            alert("📍 Map location updated to Lat: " + lat + ", Lng: " + lng + ". Click 'Save Status' to save.");
+        });
+
+        function updateCollectorGPS() {
+            if (!navigator.geolocation) {
+                alert("Geolocation is not supported by your browser. You can click anywhere on the map above to drop a pin manually!");
+                return;
+            }
+            navigator.geolocation.getCurrentPosition(
+                (pos) => {
+                    const lat = pos.coords.latitude.toFixed(6);
+                    const lng = pos.coords.longitude.toFixed(6);
+                    document.getElementById('collector_lat').value = lat;
+                    document.getElementById('collector_lng').value = lng;
+                    if (window.collectorMarker) {
+                        window.collectorMarker.setLatLng([lat, lng]);
+                        window.map.setView([lat, lng], 14);
+                    }
+                    alert("✓ Live GPS coordinates captured (" + lat + ", " + lng + ")! Click 'Save Status' to update.");
+                },
+                (err) => {
+                    let msg = "GPS detection unavailable.";
+                    if (err.code === 1) msg = "Location permission denied. You can click on the map to set location manually.";
+                    else if (err.code === 2) msg = "Location position unavailable.";
+                    else if (err.code === 3) msg = "Location detection timed out.";
+                    alert("⚠️ " + msg);
+                },
+                { enableHighAccuracy: true, timeout: 10000, maximumAge: 0 }
+            );
         }
 
         // On-Site Verification Modal Logic
         let currentModalItems = [];
 
+        function openVerifyModalFromBtn(btn) {
+            const pickupId = btn.getAttribute('data-pickup-id');
+            const itemsRaw = btn.getAttribute('data-items');
+            let items = [];
+            try {
+                items = JSON.parse(itemsRaw);
+            } catch(e) {
+                items = [];
+            }
+            openVerifyModal(pickupId, items);
+        }
+
         function openVerifyModal(pickupId, items) {
-            currentModalItems = items;
+            currentModalItems = items || [];
             const modal = document.getElementById('verify-modal');
             const form = document.getElementById('verify-form');
             form.action = '/collector/verify-pickup/' + pickupId;
@@ -384,16 +422,18 @@
             const listContainer = document.getElementById('verify-items-list');
             let html = '';
 
-            items.forEach((it, idx) => {
+            currentModalItems.forEach((it, idx) => {
+                const itemRate = parseFloat(it.rate) || 0;
+                const itemQty = parseFloat(it.qty) || 0;
                 html += `
                     <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px; background: #f8fafc; padding: 10px 14px; border-radius: 8px;">
                         <div>
                             <strong>${it.name}</strong>
-                            <div style="font-size: 12px; color: #64748b;">Rate: ₹${it.rate.toFixed(2)} / ${it.unit} (Est: ${it.qty} ${it.unit})</div>
+                            <div style="font-size: 12px; color: #64748b;">Rate: ₹${itemRate.toFixed(2)} / ${it.unit} (Est: ${itemQty} ${it.unit})</div>
                         </div>
                         <div style="display: flex; align-items: center; gap: 6px;">
                             <label style="font-size: 12px;">Actual ${it.unit}s:</label>
-                            <input type="number" step="0.1" min="0" value="${it.qty}" class="actual-qty-input" id="act-qty-${idx}" oninput="recalcModalTotal()">
+                            <input type="number" step="0.1" min="0" value="${itemQty}" class="actual-qty-input" id="act-qty-${idx}" oninput="recalcModalTotal()">
                         </div>
                     </div>`;
             });
@@ -414,7 +454,8 @@
             currentModalItems.forEach((it, idx) => {
                 const inp = document.getElementById('act-qty-' + idx);
                 const actualQty = parseFloat(inp ? inp.value : 0) || 0;
-                const subtotal = actualQty * it.rate;
+                const itemRate = parseFloat(it.rate) || 0;
+                const subtotal = actualQty * itemRate;
                 total += subtotal;
 
                 updatedItems.push({
@@ -423,14 +464,47 @@
                     category: it.category,
                     qty: actualQty,
                     unit: it.unit,
-                    rate: it.rate,
+                    rate: itemRate,
                     subtotal: subtotal
                 });
             });
 
-            document.getElementById('modal-final-total').innerText = '₹' + total.toFixed(2);
-            document.getElementById('actual_items_json').value = JSON.stringify(updatedItems);
+            const jsonInput = document.getElementById('actual_items_json');
+            if (jsonInput) jsonInput.value = JSON.stringify(updatedItems);
+            const totalEl = document.getElementById('modal-final-total');
+            if (totalEl) totalEl.textContent = '₹' + total.toFixed(2);
         }
+
+        function toggleMobileNav() {
+            const wrapper = document.getElementById('nav-menu-wrapper');
+            const toggleBtn = document.getElementById('mobile-nav-toggle');
+            if (wrapper) {
+                wrapper.classList.toggle('active');
+                const icon = toggleBtn ? toggleBtn.querySelector('i') : null;
+                if (icon) {
+                    if (wrapper.classList.contains('active')) {
+                        icon.className = 'fa-solid fa-xmark';
+                    } else {
+                        icon.className = 'fa-solid fa-bars';
+                    }
+                }
+            }
+        }
+
+        document.addEventListener('click', function(e) {
+            const navbar = document.querySelector('.navbar');
+            const wrapper = document.getElementById('nav-menu-wrapper');
+            const toggleBtn = document.getElementById('mobile-nav-toggle');
+            if (navbar && wrapper && wrapper.classList.contains('active')) {
+                if (!navbar.contains(e.target) || e.target.closest('a')) {
+                    wrapper.classList.remove('active');
+                    if (toggleBtn) {
+                        const icon = toggleBtn.querySelector('i');
+                        if (icon) icon.className = 'fa-solid fa-bars';
+                    }
+                }
+            }
+        });
     </script>
 </body>
 </html>

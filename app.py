@@ -17,6 +17,7 @@ import re
 import json
 import hashlib
 import math
+from market_api import fetch_live_market_scrap_rates
 
 app = Flask(__name__)
 app.config.from_object(Config)
@@ -498,24 +499,20 @@ def get_today_scrap_rates():
                     "icon": matched_icon
                 })
         else:
-            # Generate deterministic daily market variations for today
-            for item in BASE_SCRAP_ITEMS:
-                # Seed with item_code + today_str for consistent daily fluctuation
-                seed_hash = hashlib.md5(f"{item['code']}_{today_str}".encode()).hexdigest()
-                hash_int = int(seed_hash[:6], 16)
-                
-                # Daily variation between -3% and +3.5%
-                var_percent = round(((hash_int % 65) - 30) / 10.0, 1) # e.g. -2.5%, +1.2%, 0.0%
-                if var_percent > 0.5:
-                    trend = "up"
-                elif var_percent < -0.5:
-                    trend = "down"
-                else:
-                    trend = "stable"
+            # Fetch real live market rates from commodity & exchange APIs
+            live_market_rates = fetch_live_market_scrap_rates()
+            for item in live_market_rates:
+                code = item["code"]
+                rate = item["rate"]
+                trend = item["trend"]
+                change = item["change"]
 
-                today_rate = round(item["base_rate"] * (1 + var_percent / 100.0), 2)
-                if item["unit"] == "unit" and today_rate > 100:
-                    today_rate = round(today_rate) # Whole numbers for unit prices
+                # Match icon from BASE_SCRAP_ITEMS
+                matched_icon = "fa-recycle"
+                for b in BASE_SCRAP_ITEMS:
+                    if b["code"] == code:
+                        matched_icon = b["icon"]
+                        break
 
                 try:
                     cur.execute(
@@ -524,35 +521,41 @@ def get_today_scrap_rates():
                         VALUES (%s, %s, %s, %s, %s, %s, %s, %s)
                         ON DUPLICATE KEY UPDATE rate_per_unit=%s, trend=%s, change_percent=%s
                         """,
-                        (item["category"], item["code"], item["name"], today_rate, item["unit"], today_str, trend, var_percent, today_rate, trend, var_percent)
+                        (item["category"], code, item["name"], rate, item["unit"], today_str, trend, change, rate, trend, change)
                     )
                 except Exception:
                     pass
 
                 rates.append({
                     "category": item["category"],
-                    "code": item["code"],
+                    "code": code,
                     "name": item["name"],
-                    "rate": float(today_rate),
+                    "rate": float(rate),
                     "unit": item["unit"],
                     "trend": trend,
-                    "change": var_percent,
-                    "icon": item["icon"]
+                    "change": change,
+                    "icon": matched_icon
                 })
         cur.close()
         conn.close()
     except Exception as exc:
-        traceback.print_exc()
-        for item in BASE_SCRAP_ITEMS:
+        app.logger.warning(f"DB access notice: {exc}. Using direct live market API fetch.")
+        live_rates = fetch_live_market_scrap_rates()
+        for item in live_rates:
+            matched_icon = "fa-recycle"
+            for b in BASE_SCRAP_ITEMS:
+                if b["code"] == item["code"]:
+                    matched_icon = b["icon"]
+                    break
             rates.append({
                 "category": item["category"],
                 "code": item["code"],
                 "name": item["name"],
-                "rate": item["base_rate"],
+                "rate": float(item["rate"]),
                 "unit": item["unit"],
-                "trend": "stable",
-                "change": 0.0,
-                "icon": item["icon"]
+                "trend": item["trend"],
+                "change": item["change"],
+                "icon": matched_icon
             })
 
     categories = {}
@@ -570,6 +573,74 @@ def get_today_scrap_rates():
     }
 
 
+@app.before_request
+def validate_and_sanitize_session():
+    """
+    Validates logged-in session IDs against MySQL database on every request.
+    If session credentials point to non-existent or deactivated user/collector/admin records,
+    automatically purges stale session data so the website opens cleanly without manual logouts.
+    """
+    if request.endpoint == 'static' or (request.path and request.path.startswith('/static')):
+        return
+
+    user_id = session.get("user_id")
+    collector_id = session.get("collector_id")
+    admin_id = session.get("admin_id")
+    is_collector = session.get("is_collector")
+    is_admin = session.get("is_admin")
+
+    if not user_id and not collector_id and not admin_id:
+        if session.get("username") or session.get("collector_name") or is_collector or is_admin:
+            session.clear()
+        return
+
+    try:
+        conn = get_db_connection()
+        cur = conn.cursor()
+
+        if user_id:
+            cur.execute("SELECT id, account_status FROM users WHERE id=%s", (user_id,))
+            row = cur.fetchone()
+            if not row or (len(row) > 1 and row[1] == "Deactivated"):
+                session.clear()
+                cur.close()
+                conn.close()
+                return
+
+        if is_collector or collector_id:
+            if not collector_id:
+                session.clear()
+                cur.close()
+                conn.close()
+                return
+            cur.execute("SELECT id, account_status FROM collectors WHERE id=%s", (collector_id,))
+            row = cur.fetchone()
+            if not row or (len(row) > 1 and row[1] == "Deactivated"):
+                session.clear()
+                cur.close()
+                conn.close()
+                return
+
+        if is_admin or admin_id:
+            if not admin_id:
+                session.clear()
+                cur.close()
+                conn.close()
+                return
+            cur.execute("SELECT id FROM admins WHERE id=%s", (admin_id,))
+            row = cur.fetchone()
+            if not row:
+                session.clear()
+                cur.close()
+                conn.close()
+                return
+
+        cur.close()
+        conn.close()
+    except Exception as exc:
+        app.logger.warning(f"Session validation DB check notice: {exc}")
+
+
 @app.route("/")
 def home():
     scrap_data = get_today_scrap_rates()
@@ -578,6 +649,8 @@ def home():
 
 @app.route("/api/scrap-rates")
 def api_scrap_rates():
+    if not session.get("user_id") and not session.get("is_collector") and not session.get("is_admin"):
+        return jsonify({"error": "Authentication required. Please log in."}), 401
     return jsonify(get_today_scrap_rates())
 
 
@@ -585,9 +658,10 @@ def api_scrap_rates():
 def login():
     if request.method == "GET":
         success_msg = None
+        message = request.args.get("message")
         if request.args.get("verified") == "true":
             success_msg = "OTP successfully verified! You can now log in."
-        return render_template("login.html", success_message=success_msg)
+        return render_template("login.html", success_message=success_msg, message=message)
 
     identifier = request.form.get("username", "").strip()
     password = request.form.get("password", "")
@@ -619,7 +693,8 @@ def login():
         session.clear()
         session["user_id"] = user_id
         session["username"] = db_username or db_email
-        return redirect("/")
+        next_page = request.args.get("next") or request.form.get("next") or "/"
+        return redirect(next_page)
     except Exception as exc:
         traceback.print_exc()
         return render_template("login.html", message=f"Login error: {str(exc)}")
@@ -747,9 +822,116 @@ def register():
         return render_template("register.html", message=f"Error creating user: {str(exc)}")
 
 
+@app.route("/verify-otp", methods=("GET", "POST"))
+def verify_otp():
+    email = session.get("pending_otp_email")
+
+    if request.method == "GET":
+        if not email:
+            return render_template("verify.html", message="Please register or log in first to verify your OTP.")
+        return render_template("verify.html", email=email)
+
+    # POST method - verify OTP code
+    code = request.form.get("code", "").strip()
+    if not code:
+        return render_template("verify.html", email=email, message="Please enter the 6-digit OTP code.")
+
+    if not email:
+        return render_template("verify.html", message="Session expired. Please log in or register again.")
+
+    try:
+        conn = get_db_connection()
+        cur = conn.cursor()
+        cur.execute("SELECT id, otp_code, otp_expires, is_verified FROM users WHERE email=%s", (email,))
+        row = cur.fetchone()
+
+        if not row:
+            cur.close()
+            conn.close()
+            return render_template("verify.html", email=email, message="User record not found.")
+
+        user_id, db_otp_code, db_otp_expires, is_verified = row
+
+        if is_verified:
+            cur.close()
+            conn.close()
+            session.pop("pending_otp_email", None)
+            return redirect(url_for("login", verified="true"))
+
+        if not db_otp_code or str(db_otp_code).strip() != str(code).strip():
+            cur.close()
+            conn.close()
+            return render_template("verify.html", email=email, message="Invalid OTP code. Please check your email and try again.")
+
+        if db_otp_expires:
+            if isinstance(db_otp_expires, str):
+                try:
+                    db_otp_expires = datetime.strptime(db_otp_expires, "%Y-%m-%d %H:%M:%S")
+                except ValueError:
+                    pass
+            if datetime.now() > db_otp_expires:
+                cur.close()
+                conn.close()
+                return render_template("verify.html", email=email, message="OTP code has expired. Please click Resend OTP.")
+
+        cur.execute("UPDATE users SET is_verified = 1, otp_code = NULL, otp_expires = NULL WHERE id = %s", (user_id,))
+        cur.close()
+        conn.close()
+
+        session.pop("pending_otp_email", None)
+        return redirect(url_for("login", verified="true"))
+
+    except Exception as exc:
+        traceback.print_exc()
+        return render_template("verify.html", email=email, message=f"Verification error: {str(exc)}")
+
+
+@app.route("/resend-otp", methods=("POST",))
+def resend_otp():
+    email = session.get("pending_otp_email")
+    if not email:
+        return render_template("verify.html", message="Session expired. Please try registering or logging in again.")
+
+    try:
+        conn = get_db_connection()
+        cur = conn.cursor()
+        cur.execute("SELECT id FROM users WHERE email=%s", (email,))
+        row = cur.fetchone()
+        if not row:
+            cur.close()
+            conn.close()
+            return render_template("verify.html", message="User record not found.")
+
+        user_id = row[0]
+        otp = str(secrets.randbelow(900000) + 100000)
+        expires = datetime.now() + timedelta(minutes=15)
+
+        cur.execute(
+            "UPDATE users SET otp_code=%s, otp_expires=%s WHERE id=%s",
+            (otp, expires.strftime("%Y-%m-%d %H:%M:%S"), user_id),
+        )
+        cur.close()
+        conn.close()
+
+        try:
+            send_otp_email(email, otp)
+        except Exception as exc:
+            app.logger.exception("Unable to resend registration OTP")
+            return render_template("verify.html", email=email, message=f"Could not resend OTP email: {exc}")
+
+        return render_template("verify.html", email=email, success_message="A new OTP code has been sent to your email.")
+    except Exception as exc:
+        traceback.print_exc()
+        return render_template("verify.html", email=email, message=f"Error resending OTP: {str(exc)}")
+
+
+
+
 @app.route("/request-pickup", methods=("GET", "POST"))
 def request_pickup():
     user_id = session.get("user_id")
+    if not user_id:
+        return redirect(url_for("login", message="Please log in to calculate scrap payouts and schedule a pickup.", next="/request-pickup"))
 
     if request.method == "GET":
         scrap_data = get_today_scrap_rates()
@@ -881,6 +1063,8 @@ def request_pickup():
 
 @app.route("/scrap-prices")
 def scrap_prices():
+    if not session.get("user_id"):
+        return redirect(url_for("login", message="Please log in to view scrap rates and calculate payouts.", next="/scrap-prices"))
     scrap_data = get_today_scrap_rates()
     return render_template("scrap_prices.html", scrap_data=scrap_data)
 
@@ -1104,6 +1288,10 @@ def collector_login():
         if not check_password_hash(db_password, password):
             return render_template("collector_login.html", message="Invalid collector credentials.")
 
+        if not db_verified:
+            session["pending_collector_otp_email"] = db_email
+            return render_template("collector_login.html", message="Collector account not verified. Check your email for the OTP.", show_verify_link=True)
+
         if acc_status == "Deactivated":
             return render_template("collector_login.html", message="Your collector account has been deactivated. Please contact admin.")
 
@@ -1148,16 +1336,138 @@ def collector_register():
         cur.execute(
             """
             INSERT INTO collectors (username, email, phone, password, is_verified, approval_status, account_status)
-            VALUES (%s, %s, %s, %s, 1, 'Approved', 'Active')
+            VALUES (%s, %s, %s, %s, 0, 'Approved', 'Active')
             """,
             (username, email, phone, hashed_pass),
         )
+        col_id = cur.lastrowid
+
+        # generate OTP and expiry
+        otp = str(secrets.randbelow(900000) + 100000)
+        expires = datetime.now() + timedelta(minutes=15)
+        cur.execute(
+            "UPDATE collectors SET otp_code=%s, otp_expires=%s WHERE id=%s",
+            (otp, expires.strftime("%Y-%m-%d %H:%M:%S"), col_id),
+        )
+
+        try:
+            send_otp_email(email, otp)
+        except Exception as exc:
+            app.logger.exception("Unable to send collector registration OTP email")
+            print(f"[OTP LOG] Collector registration OTP for {email}: {otp}")
+
         cur.close()
         conn.close()
-        return render_template("collector_login.html", success_message="Collector registration successful! Please log in.")
+
+        session["pending_collector_otp_email"] = email
+        return redirect(url_for("collector_verify_otp"))
     except Exception as exc:
         traceback.print_exc()
         return render_template("collector_register.html", message=f"Registration error: {str(exc)}")
+
+
+@app.route("/collector/verify-otp", methods=("GET", "POST"))
+def collector_verify_otp():
+    email = session.get("pending_collector_otp_email")
+
+    if request.method == "GET":
+        if not email:
+            return render_template("collector_verify.html", message="Please register or log in as a collector first.")
+        return render_template("collector_verify.html", email=email)
+
+    code = request.form.get("code", "").strip()
+    if not code:
+        return render_template("collector_verify.html", email=email, message="Please enter the 6-digit OTP code.")
+
+    if not email:
+        return render_template("collector_verify.html", message="Session expired. Please log in again to receive a new OTP code.")
+
+    try:
+        conn = get_db_connection()
+        cur = conn.cursor()
+        cur.execute("SELECT id, otp_code, otp_expires, is_verified FROM collectors WHERE email=%s", (email,))
+        row = cur.fetchone()
+
+        if not row:
+            cur.close()
+            conn.close()
+            return render_template("collector_verify.html", email=email, message="Collector record not found.")
+
+        col_id, db_otp_code, db_otp_expires, is_verified = row
+
+        if is_verified:
+            cur.close()
+            conn.close()
+            session.pop("pending_collector_otp_email", None)
+            return redirect(url_for("collector_login", verified="true"))
+
+        if not db_otp_code or str(db_otp_code).strip() != str(code).strip():
+            cur.close()
+            conn.close()
+            return render_template("collector_verify.html", email=email, message="Invalid OTP code. Please try again.")
+
+        if db_otp_expires:
+            if isinstance(db_otp_expires, str):
+                try:
+                    db_otp_expires = datetime.strptime(db_otp_expires, "%Y-%m-%d %H:%M:%S")
+                except ValueError:
+                    pass
+            if datetime.now() > db_otp_expires:
+                cur.close()
+                conn.close()
+                return render_template("collector_verify.html", email=email, message="OTP code has expired. Please click Resend OTP.")
+
+        cur.execute("UPDATE collectors SET is_verified = 1, otp_code = NULL, otp_expires = NULL WHERE id = %s", (col_id,))
+        cur.close()
+        conn.close()
+
+        session.pop("pending_collector_otp_email", None)
+        return redirect(url_for("collector_login", verified="true"))
+
+    except Exception as exc:
+        traceback.print_exc()
+        return render_template("collector_verify.html", email=email, message=f"Verification error: {str(exc)}")
+
+
+@app.route("/collector/resend-otp", methods=("POST",))
+def collector_resend_otp():
+    email = session.get("pending_collector_otp_email")
+    if not email:
+        return render_template("collector_verify.html", message="Session expired. Please try logging in again.")
+
+    try:
+        conn = get_db_connection()
+        cur = conn.cursor()
+        cur.execute("SELECT id FROM collectors WHERE email=%s", (email,))
+        row = cur.fetchone()
+        if not row:
+            cur.close()
+            conn.close()
+            return render_template("collector_verify.html", message="Collector record not found.")
+
+        col_id = row[0]
+        otp = str(secrets.randbelow(900000) + 100000)
+        expires = datetime.now() + timedelta(minutes=15)
+
+        cur.execute(
+            "UPDATE collectors SET otp_code=%s, otp_expires=%s WHERE id=%s",
+            (otp, expires.strftime("%Y-%m-%d %H:%M:%S"), col_id),
+        )
+        cur.close()
+        conn.close()
+
+        try:
+            send_otp_email(email, otp)
+        except Exception as exc:
+            app.logger.exception("Unable to resend collector OTP")
+            return render_template("collector_verify.html", email=email, message=f"Could not resend OTP email: {exc}")
+
+        return render_template("collector_verify.html", email=email, success_message="A new OTP code has been sent to your email.")
+    except Exception as exc:
+        traceback.print_exc()
+        return render_template("collector_verify.html", email=email, message=f"Error resending OTP: {str(exc)}")
+
+
 
 
 @app.route("/collector/dashboard")
@@ -1209,7 +1519,7 @@ def collector_dashboard():
             except Exception:
                 items = []
             pending_pickups.append({
-                "id": r[0], "user_name": r[1], "items": items, "total_price": float(r[3]) if r[3] else 0.0,
+                "id": r[0], "user_name": r[1], "items": items, "items_list": items, "total_price": float(r[3]) if r[3] else 0.0,
                 "pickup_date": str(r[4]), "time_slot": r[5], "phone": r[6], "address": r[7], "notes": r[8], "created_at": str(r[9]),
                 "latitude": float(r[10]) if r[10] else 12.9716, "longitude": float(r[11]) if r[11] else 77.5946,
                 "scrap_type": r[12] or "General Scrap", "estimated_weight": float(r[13]) if r[13] else 0.0
@@ -1236,7 +1546,7 @@ def collector_dashboard():
                 actual_items = []
 
             my_pickups.append({
-                "id": r[0], "user_name": r[1], "items": items, "total_price": float(r[3]) if r[3] else 0.0,
+                "id": r[0], "user_name": r[1], "items": items, "items_list": items, "total_price": float(r[3]) if r[3] else 0.0,
                 "pickup_date": str(r[4]), "time_slot": r[5], "phone": r[6], "address": r[7], "notes": r[8], "status": r[9], "created_at": str(r[10]),
                 "latitude": float(r[11]) if r[11] else 12.9716, "longitude": float(r[12]) if r[12] else 77.5946,
                 "scrap_type": r[13] or "General Scrap", "estimated_weight": float(r[14]) if r[14] else 0.0,
@@ -1255,13 +1565,21 @@ def collector_dashboard():
     active_assigned = [p for p in my_pickups if p["status"] == "Assigned"]
     ordered_route, total_route_dist = optimize_collector_route(collector_info["latitude"], collector_info["longitude"], active_assigned)
 
+    gmaps_origin = f"{collector_info['latitude']},{collector_info['longitude']}"
+    gmaps_destination = f"{ordered_route[-1]['latitude']},{ordered_route[-1]['longitude']}" if ordered_route else ""
+    waypoints_list = [f"{p['latitude']},{p['longitude']}" for p in ordered_route[:-1]]
+    gmaps_waypoints = "|".join(waypoints_list)
+
     return render_template(
         "collector_dashboard.html",
         collector=collector_info,
         pending_pickups=pending_pickups,
         my_pickups=my_pickups,
         ordered_route=ordered_route,
-        total_route_dist=total_route_dist
+        total_route_dist=total_route_dist,
+        gmaps_origin=gmaps_origin,
+        gmaps_destination=gmaps_destination,
+        gmaps_waypoints=gmaps_waypoints
     )
 
 
@@ -1367,6 +1685,12 @@ def collector_complete_pickup(pickup_id):
     except Exception as exc:
         traceback.print_exc()
     return redirect(url_for("collector_dashboard"))
+
+
+@app.route("/collector/logout")
+def collector_logout():
+    session.clear()
+    return redirect("/")
 
 
 # ==========================================
@@ -1609,6 +1933,12 @@ def admin_delete_user(user_id):
         conn = get_db_connection()
         cur = conn.cursor()
         cur.execute("DELETE FROM users WHERE id=%s", (user_id,))
+        # Reset AUTO_INCREMENT sequence so if table is empty or last row deleted, sequence resets
+        cur.execute("SELECT MAX(id) FROM users")
+        max_res = cur.fetchone()
+        max_id = max_res[0] if max_res and max_res[0] is not None else 0
+        next_auto = max_id + 1
+        cur.execute(f"ALTER TABLE users AUTO_INCREMENT = {next_auto}")
         cur.close()
         conn.close()
     except Exception as exc:

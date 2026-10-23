@@ -5,30 +5,70 @@
   font-family: Arial, sans-serif;
   }
 
-html {
-scroll-behavior: smooth;
+html, body {
+  scroll-behavior: smooth;
+  overflow-x: hidden;
+  width: 100%;
+  max-width: 100%;
 }
 
 body {
-background: #f7faf8;
-color: #222;
+  background: #f7faf8;
+  color: #222;
 }
 
 /* =========================
-NAVIGATION
+NAVIGATION & MOBILE TOGGLE
 ========================= */
 
 .navbar {
-height: 75px;
-display: flex;
-align-items: center;
-justify-content: space-between;
-padding: 0 6%;
-background: white;
-box-shadow: 0 2px 10px rgba(0,0,0,0.08);
-position: sticky;
-top: 0;
-z-index: 1000;
+  height: 75px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 6%;
+  background: white;
+  box-shadow: 0 2px 10px rgba(0,0,0,0.08);
+  position: sticky;
+  top: 0;
+  z-index: 1000;
+  width: 100%;
+}
+
+.mobile-nav-toggle {
+  display: none;
+  background: none;
+  border: 1px solid #cbd5e1;
+  font-size: 20px;
+  color: #14532d;
+  cursor: pointer;
+  padding: 8px 14px;
+  border-radius: 8px;
+  transition: all 0.2s ease;
+  min-height: 44px;
+  min-width: 44px;
+  align-items: center;
+  justify-content: center;
+}
+
+.mobile-nav-toggle:hover,
+.mobile-nav-toggle:focus {
+  background: #f0fdf4;
+  border-color: #15803d;
+}
+
+.nav-menu-wrapper {
+  display: flex;
+  align-items: center;
+  gap: 30px;
+}
+
+.table-responsive {
+  width: 100%;
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+  margin-top: 16px;
+  border-radius: 10px;
 }
 
 .logo {
@@ -401,102 +441,291 @@ color: #b7d8c0;
 }
 
 /* =========================
-RESPONSIVE DESIGN
+RESPONSIVE DESIGN & MOBILE DRAWER
 ========================= */
 
 @media (max-width: 1100px) {
+  .nav-links {
+    gap: 18px;
+  }
+  
+  .nav-links a {
+    font-size: 14px;
+  }
 
-```
-.nav-links {
-    gap: 15px;
-}
+  .hero h1 {
+    font-size: 44px;
+  }
 
-.hero h1 {
-    font-size: 42px;
-}
-
-.steps {
+  .steps {
     flex-wrap: wrap;
-}
+    justify-content: center;
+  }
 
-.arrow {
+  .arrow {
     display: none;
-}
+  }
 
-.category-grid {
+  .category-grid {
     grid-template-columns: repeat(3, 1fr);
-}
+  }
 
-.features {
+  .features {
     grid-template-columns: repeat(2, 1fr);
+  }
 }
-```
 
+@media (max-width: 900px) {
+  .mobile-nav-toggle {
+    display: inline-flex;
+  }
+
+  .nav-menu-wrapper {
+    display: none;
+    position: absolute;
+    top: 75px;
+    left: 0;
+    right: 0;
+    width: 100%;
+    background: #ffffff;
+    flex-direction: column;
+    align-items: stretch;
+    padding: 24px 6%;
+    box-shadow: 0 12px 30px rgba(0,0,0,0.12);
+    border-top: 1px solid #e2e8f0;
+    gap: 20px;
+    max-height: calc(100vh - 75px);
+    overflow-y: auto;
+    z-index: 999;
+  }
+
+  .nav-menu-wrapper.active {
+    display: flex;
+    animation: fadeInDown 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+  }
+
+  @keyframes fadeInDown {
+    from { opacity: 0; transform: translateY(-10px); }
+    to { opacity: 1; transform: translateY(0); }
+  }
+
+  .nav-links {
+    flex-direction: column;
+    gap: 8px;
+    width: 100%;
+  }
+
+  .nav-links a {
+    padding: 12px 16px;
+    border-radius: 8px;
+    font-size: 15px;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+  }
+
+  .nav-links a:hover,
+  .nav-links a.active {
+    background: #f0fdf4;
+  }
+
+  .nav-buttons {
+    flex-direction: column;
+    gap: 10px;
+    width: 100%;
+    padding-top: 10px;
+    border-top: 1px dashed #e2e8f0;
+  }
+
+  .login-btn,
+  .signup-btn,
+  .collector-nav-btn {
+    text-align: center;
+    justify-content: center;
+    width: 100%;
+    padding: 13px 18px;
+    font-size: 15px;
+  }
 }
 
 @media (max-width: 768px) {
+  .navbar {
+    padding: 0 5%;
+  }
 
-```
-.navbar {
-    padding: 0 4%;
-}
-
-.nav-links {
-    display: none;
-}
-
-.hero {
+  .hero {
     flex-direction: column;
-    padding: 60px 6%;
-    gap: 40px;
-}
+    padding: 45px 5%;
+    gap: 30px;
+    text-align: center;
+    min-height: auto;
+  }
 
-.hero-content,
-.hero-image {
+  .hero-content,
+  .hero-image {
     width: 100%;
-}
+  }
 
-.hero h1 {
-    font-size: 38px;
-}
+  .hero h1 {
+    font-size: 32px;
+    line-height: 1.25;
+  }
 
-.stats {
-    flex-wrap: wrap;
-    gap: 20px;
-}
+  .hero p {
+    font-size: 15px;
+    margin: 0 auto;
+  }
 
-.steps {
+  .hero-buttons {
     flex-direction: column;
-}
+    gap: 12px;
+  }
 
-.step {
+  .hero-image {
+    min-height: 280px;
+    max-height: 320px;
+    border-radius: 20px;
+  }
+
+  .recycle-symbol {
+    font-size: 80px;
+    top: 15px;
+  }
+
+  .truck {
+    font-size: 100px;
+  }
+
+  .scrap-icons {
+    font-size: 26px;
+    right: 15px;
+    bottom: 20px;
+    gap: 8px;
+  }
+
+  .stats {
+    flex-direction: column;
+    align-items: center;
+    gap: 16px;
+    margin-top: 30px;
+  }
+
+  .stat {
+    justify-content: center;
+  }
+
+  .steps {
+    flex-direction: column;
+  }
+
+  .step {
     width: 100%;
-}
+  }
 
-.category-grid {
+  .category-grid {
     grid-template-columns: repeat(2, 1fr);
-}
+    gap: 14px;
+  }
 
-.features {
+  .category-card {
+    padding: 20px 12px;
+  }
+
+  .features {
     grid-template-columns: 1fr;
-}
+    gap: 20px;
+    padding: 30px 5%;
+  }
 
-footer {
+  footer {
     flex-direction: column;
     gap: 20px;
     text-align: center;
-}
+    padding: 30px 5%;
+  }
 
-.hero-buttons {
-    flex-direction: column;
-}
-
-.primary-btn,
-.secondary-btn {
+  .primary-btn,
+  .secondary-btn {
     text-align: center;
-}
-```
+    display: block;
+    width: 100%;
+  }
 
+  .live-rates-section,
+  .how-it-works,
+  .categories {
+    padding: 45px 5%;
+  }
+
+  .live-rates-header {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+
+  .home-price-grid,
+  .price-cards-grid {
+    grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+    gap: 14px;
+  }
+
+  .rates-cta-bar {
+    flex-direction: column;
+    gap: 12px;
+  }
+
+  .booking-page-container,
+  .prices-page-container,
+  .dashboard-container {
+    padding: 24px 4%;
+  }
+}
+
+@media (max-width: 480px) {
+  .logo h2 {
+    font-size: 18px;
+  }
+
+  .logo > i {
+    font-size: 28px;
+  }
+
+  .logo span {
+    font-size: 10px;
+  }
+
+  .hero h1 {
+    font-size: 26px;
+  }
+
+  .category-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .home-price-grid,
+  .price-cards-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .metric-card {
+    padding: 16px;
+    gap: 12px;
+  }
+
+  .metric-card i {
+    font-size: 24px;
+  }
+
+  .metric-card h3 {
+    font-size: 20px;
+  }
+
+  .auth-body {
+    padding: 20px 12px;
+  }
+
+  .auth-card {
+    padding: 22px 18px;
+  }
 }
 
 .auth-body {
@@ -1577,3 +1806,200 @@ LIVE SCRAP RATES & BOOKING SYSTEM
     padding: 12px !important;
     font-size: 15px !important;
 }
+
+/* ==========================================
+   COLLECTOR DASHBOARD OPTIMIZED LAYOUT STYLES
+   ========================================== */
+
+.collector-control-card {
+    background: #ffffff;
+    border-radius: 16px;
+    padding: 24px;
+    margin-bottom: 28px;
+    box-shadow: 0 4px 20px rgba(0,0,0,0.05);
+    border: 1px solid #e2e8f0;
+}
+
+.collector-control-card .control-card-form {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 20px;
+}
+
+.collector-control-card .control-location-info {
+    flex: 1;
+    min-width: 280px;
+}
+
+.collector-control-card .control-location-info h3 {
+    margin: 0 0 6px;
+    color: #1e293b;
+    font-size: 17px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.collector-control-card .control-location-info p {
+    margin: 0;
+    font-size: 13.5px;
+    color: #64748b;
+    line-height: 1.5;
+}
+
+.collector-control-card .coords-tag {
+    background: #f1f5f9;
+    padding: 2px 8px;
+    border-radius: 6px;
+    color: #334155;
+    font-family: monospace;
+    font-size: 12.5px;
+}
+
+.collector-control-card .control-actions-group {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    flex-wrap: wrap;
+}
+
+.collector-control-card .status-select {
+    padding: 10px 14px;
+    border-radius: 10px;
+    border: 1px solid #cbd5e1;
+    font-size: 13.5px;
+    background: #f8fafc;
+    color: #1e293b;
+    font-weight: 500;
+    cursor: pointer;
+}
+
+.collector-control-card .save-status-btn {
+    padding: 10px 18px !important;
+    font-size: 13.5px !important;
+    border-radius: 10px;
+    border: none;
+    cursor: pointer;
+}
+
+.collector-control-card .gps-update-btn {
+    padding: 10px 16px !important;
+    font-size: 13.5px !important;
+    border-radius: 10px;
+    cursor: pointer;
+}
+
+.pickups-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(460px, 1fr));
+    gap: 24px;
+}
+
+@media (max-width: 992px) {
+    .pickups-grid {
+        grid-template-columns: 1fr;
+    }
+}
+
+/* ==========================================
+   COLLECTOR PORTAL RESPONSIVE MOBILE STYLES
+   ========================================== */
+
+@media (max-width: 768px) {
+    .mobile-nav-toggle {
+        display: flex !important;
+    }
+
+    .nav-menu-wrapper {
+        position: fixed;
+        top: 75px;
+        left: 0;
+        width: 100%;
+        background: white;
+        flex-direction: column;
+        align-items: flex-start;
+        padding: 20px 6%;
+        gap: 20px;
+        box-shadow: 0 10px 25px rgba(0,0,0,0.1);
+        display: none;
+        z-index: 999;
+    }
+
+    .nav-menu-wrapper.active {
+        display: flex !important;
+    }
+
+    .nav-links {
+        flex-direction: column;
+        width: 100%;
+        gap: 14px;
+    }
+
+    .nav-buttons {
+        flex-direction: column;
+        width: 100%;
+        gap: 10px;
+    }
+
+    .collector-control-card {
+        padding: 18px !important;
+    }
+
+    .collector-control-card .control-card-form {
+        flex-direction: column !important;
+        align-items: stretch !important;
+    }
+
+    .collector-control-card .control-actions-group {
+        width: 100%;
+        flex-direction: column;
+        align-items: stretch;
+    }
+
+    .collector-control-card .control-actions-group select,
+    .collector-control-card .control-actions-group button {
+        width: 100%;
+    }
+
+    .route-optimizer-box {
+        padding: 18px !important;
+    }
+
+    .route-map-container {
+        height: 260px !important;
+    }
+
+    .nav-btn-gmaps {
+        width: 100%;
+        justify-content: center;
+        margin-top: 10px;
+        font-size: 13px;
+    }
+
+    .stop-pill {
+        flex-direction: column !important;
+        align-items: flex-start !important;
+        gap: 8px !important;
+    }
+
+    .stop-pill > div:last-child {
+        text-align: left !important;
+        width: 100%;
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+    }
+
+    .verify-modal-content {
+        width: 95% !important;
+        padding: 18px !important;
+    }
+
+    .metrics-grid {
+        grid-template-columns: 1fr !important;
+    }
+}
+
+

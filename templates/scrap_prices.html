@@ -17,23 +17,38 @@
             </div>
         </div>
 
-        <div class="nav-links">
-            <a href="/"><i class="fa-solid fa-house"></i> Home</a>
-            <a href="/scrap-prices" class="active"><i class="fa-solid fa-tags"></i> Scrap Prices</a>
-            <a href="/request-pickup"><i class="fa-regular fa-calendar"></i> Book Pickup</a>
-            {% if session.username %}
-            <a href="/my-pickups"><i class="fa-solid fa-boxes-packing"></i> My Pickups</a>
-            {% endif %}
-        </div>
+        <button class="mobile-nav-toggle" id="mobile-nav-toggle" aria-label="Toggle navigation" onclick="toggleMobileNav()">
+            <i class="fa-solid fa-bars"></i>
+        </button>
 
-        <div class="nav-buttons">
-            {% if session.username %}
-            <a href="/profile" class="login-btn"><i class="fa-regular fa-id-card"></i> {{ session.username }}</a>
-            <a href="/logout" class="signup-btn"><i class="fa-solid fa-right-from-bracket"></i> Logout</a>
-            {% else %}
-            <a href="/login" class="login-btn"><i class="fa-regular fa-user"></i> Login</a>
-            <a href="/register" class="signup-btn">Sign Up</a>
-            {% endif %}
+        <div class="nav-menu-wrapper" id="nav-menu-wrapper">
+            <div class="nav-links">
+                <a href="/"><i class="fa-solid fa-house"></i> Home</a>
+                <a href="/scrap-prices" class="active"><i class="fa-solid fa-tags"></i> Scrap Prices</a>
+                <a href="/request-pickup"><i class="fa-regular fa-calendar"></i> Book Pickup</a>
+                {% if session.username %}
+                <a href="/my-pickups"><i class="fa-solid fa-boxes-packing"></i> My Pickups</a>
+                {% endif %}
+            </div>
+
+            <div class="nav-buttons">
+                {% if session.is_collector %}
+                <a href="/collector/dashboard" class="collector-nav-btn"><i class="fa-solid fa-gauge"></i> Collector Dashboard</a>
+                <a href="/login" class="login-btn"><i class="fa-regular fa-user"></i> User Login</a>
+                <a href="/collector/logout" class="signup-btn"><i class="fa-solid fa-right-from-bracket"></i> Logout</a>
+                {% elif session.is_admin %}
+                <a href="/admin/dashboard" class="collector-nav-btn" style="background: #38bdf8; color: #0f172a;"><i class="fa-solid fa-shield-halved"></i> Admin Control Panel</a>
+                <a href="/login" class="login-btn"><i class="fa-regular fa-user"></i> User Login</a>
+                <a href="/admin/logout" class="signup-btn"><i class="fa-solid fa-right-from-bracket"></i> Logout</a>
+                {% elif session.username %}
+                <a href="/profile" class="login-btn"><i class="fa-regular fa-id-card"></i> {{ session.username }}</a>
+                <a href="/logout" class="signup-btn"><i class="fa-solid fa-right-from-bracket"></i> Logout</a>
+                {% else %}
+                <a href="/login" class="login-btn"><i class="fa-regular fa-user"></i> User Login</a>
+                <a href="/register" class="signup-btn">Sign Up</a>
+                <a href="/collector/login" class="collector-nav-btn"><i class="fa-solid fa-truck-pickup"></i> Collector Portal</a>
+                {% endif %}
+            </div>
         </div>
     </nav>
 
@@ -90,6 +105,36 @@
     </div>
 
     <script>
+        function toggleMobileNav() {
+            const wrapper = document.getElementById('nav-menu-wrapper');
+            const toggleBtn = document.getElementById('mobile-nav-toggle');
+            if (wrapper) {
+                wrapper.classList.toggle('active');
+                const icon = toggleBtn.querySelector('i');
+                if (icon) {
+                    if (wrapper.classList.contains('active')) {
+                        icon.className = 'fa-solid fa-xmark';
+                    } else {
+                        icon.className = 'fa-solid fa-bars';
+                    }
+                }
+            }
+        }
+        document.addEventListener('click', function(e) {
+            const navbar = document.querySelector('.navbar');
+            const wrapper = document.getElementById('nav-menu-wrapper');
+            const toggleBtn = document.getElementById('mobile-nav-toggle');
+            if (navbar && wrapper && wrapper.classList.contains('active')) {
+                if (!navbar.contains(e.target) || e.target.closest('a')) {
+                    wrapper.classList.remove('active');
+                    if (toggleBtn) {
+                        const icon = toggleBtn.querySelector('i');
+                        if (icon) icon.className = 'fa-solid fa-bars';
+                    }
+                }
+            }
+        });
+
         function filterPrices() {
             const query = document.getElementById('price-search').value.toLowerCase();
             const cards = document.querySelectorAll('.price-rate-card');
