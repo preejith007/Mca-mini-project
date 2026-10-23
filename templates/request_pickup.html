@@ -1,0 +1,349 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Schedule Scrap Pickup | WasteTech</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+</head>
+<body>
+    <nav class="navbar">
+        <div class="logo">
+            <i class="fa-solid fa-recycle"></i>
+            <div>
+                <h2>WasteTech</h2>
+                <span>Smart Scrap Collection System</span>
+            </div>
+        </div>
+
+        <div class="nav-links">
+            <a href="/"><i class="fa-solid fa-house"></i> Home</a>
+            <a href="/scrap-prices"><i class="fa-solid fa-tags"></i> Scrap Prices</a>
+            <a href="/request-pickup" class="active"><i class="fa-regular fa-calendar"></i> Book Pickup</a>
+            {% if session.username %}
+            <a href="/my-pickups"><i class="fa-solid fa-boxes-packing"></i> My Pickups</a>
+            {% endif %}
+        </div>
+
+        <div class="nav-buttons">
+            {% if session.is_collector %}
+            <a href="/collector/dashboard" class="collector-nav-btn"><i class="fa-solid fa-gauge"></i> Dashboard</a>
+            <a href="/collector/logout" class="signup-btn"><i class="fa-solid fa-right-from-bracket"></i> Logout</a>
+            {% elif session.username %}
+            <a href="/profile" class="login-btn"><i class="fa-regular fa-id-card"></i> {{ session.username }}</a>
+            <a href="/logout" class="signup-btn"><i class="fa-solid fa-right-from-bracket"></i> Logout</a>
+            <a href="/collector/login" class="collector-nav-btn"><i class="fa-solid fa-truck-pickup"></i> Collector Portal</a>
+            {% else %}
+            <a href="/login" class="login-btn"><i class="fa-regular fa-user"></i> Login</a>
+            <a href="/register" class="signup-btn">Sign Up</a>
+            <a href="/collector/login" class="collector-nav-btn"><i class="fa-solid fa-truck-pickup"></i> Collector Portal</a>
+            {% endif %}
+        </div>
+    </nav>
+
+    <div class="booking-page-container">
+        <div class="booking-header">
+            <h1><i class="fa-solid fa-truck-ramp-box"></i> Schedule Your Scrap Pickup</h1>
+            <p>Select your scrap items, enter approximate quantity/weight, and calculate your estimated payout!</p>
+            <div class="live-date-badge">
+                <i class="fa-solid fa-circle-dot live-pulse"></i> Live Rates for Today ({{ scrap_data.date_display }})
+            </div>
+        </div>
+
+        {% if message %}
+        <div class="auth-error" style="max-width: 900px; margin: 0 auto 20px;">{{ message }}</div>
+        {% endif %}
+
+        {% if success_message %}
+        <div class="auth-success" style="max-width: 900px; margin: 0 auto 20px;">✓ {{ success_message }}</div>
+        {% endif %}
+
+        <form method="post" action="/request-pickup" id="booking-form" class="booking-form-layout">
+            <input type="hidden" name="items_json" id="items_json_input" value="[]">
+            <input type="hidden" name="total_price" id="total_price_input" value="0">
+
+            <!-- Left Main Column: Items Selection -->
+            <div class="booking-left-col">
+                <div class="booking-card-box">
+                    <h2><span class="step-num">1</span> Select Scrap Category & Items</h2>
+                    <p class="step-desc">Click on a category to view specific scrap items and daily market rates.</p>
+
+                    <!-- Category Tabs -->
+                    <div class="category-tab-buttons">
+                        {% for cat, items in scrap_data.categories.items() %}
+                        <button type="button" class="cat-btn {% if loop.first %}active{% endif %}" onclick="switchCategory('{{ cat }}')">
+                            {% if cat == 'Paper' %}<i class="fa-solid fa-newspaper"></i>
+                            {% elif cat == 'Plastic' %}<i class="fa-solid fa-bottle-water"></i>
+                            {% elif cat == 'Metals' %}<i class="fa-solid fa-cubes"></i>
+                            {% elif cat == 'E-Waste' %}<i class="fa-solid fa-laptop"></i>
+                            {% elif cat == 'Vehicle' %}<i class="fa-solid fa-car"></i>
+                            {% else %}<i class="fa-solid fa-box"></i>
+                            {% endif %}
+                            {{ cat }}
+                        </button>
+                        {% endfor %}
+                    </div>
+
+                    <!-- Category Sub-Items Panels -->
+                    {% for cat, items in scrap_data.categories.items() %}
+                    <div class="category-panel {% if loop.first %}active{% endif %}" id="cat-panel-{{ cat }}">
+                        <div class="subitems-grid">
+                            {% for item in items %}
+                            <div class="subitem-card" id="card-{{ item.code }}">
+                                <div class="subitem-header">
+                                    <i class="fa-solid {{ item.icon }} subitem-icon"></i>
+                                    <div>
+                                        <h4>{{ item.name }}</h4>
+                                        <div class="subitem-rate">
+                                            ₹{{ "%.2f"|format(item.rate) }} / {{ item.unit }}
+                                            {% if item.trend == 'up' %}<span class="trend-badge up"><i class="fa-solid fa-arrow-trend-up"></i> +{{ item.change }}%</span>
+                                            {% elif item.trend == 'down' %}<span class="trend-badge down"><i class="fa-solid fa-arrow-trend-down"></i> {{ item.change }}%</span>
+                                            {% else %}<span class="trend-badge stable"><i class="fa-solid fa-minus"></i></span>
+                                            {% endif %}
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <div class="subitem-quantity-box">
+                                    <label for="qty-{{ item.code }}">Quantity ({{ item.unit }}s):</label>
+                                    <div class="qty-counter">
+                                        <button type="button" onclick="adjustQty('{{ item.code }}', -1)">-</button>
+                                        <input type="number" id="qty-{{ item.code }}" value="0" min="0" step="1" 
+                                               data-code="{{ item.code }}" 
+                                               data-name="{{ item.name }}" 
+                                               data-rate="{{ item.rate }}" 
+                                               data-unit="{{ item.unit }}" 
+                                               data-category="{{ cat }}"
+                                               oninput="onQtyChange('{{ item.code }}')">
+                                        <button type="button" onclick="adjustQty('{{ item.code }}', 1)">+</button>
+                                    </div>
+                                </div>
+
+                                <div class="subitem-total-price" id="price-display-{{ item.code }}">
+                                    Item Price: <strong>₹0.00</strong>
+                                </div>
+                            </div>
+                            {% endfor %}
+                        </div>
+                    </div>
+                    {% endfor %}
+                </div>
+
+                <!-- Schedule & Details Section -->
+                <div class="booking-card-box" style="margin-top: 24px;">
+                    <h2><span class="step-num">2</span> Schedule & Pickup Location</h2>
+                    
+                    {% if user_info.address %}
+                    <div style="background: #e8f5e9; border: 1px solid #c8e6c9; padding: 12px 16px; border-radius: 10px; margin-bottom: 20px; display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap;">
+                        <div>
+                            <strong style="color: #2e7d32;"><i class="fa-solid fa-circle-check"></i> Saved Location Auto-Loaded (Flipkart Style)</strong>
+                            <p style="margin: 4px 0 0; font-size: 13px; color: #475569;">
+                                Label: <strong>🏠 {{ user_info.location_label or 'Home' }}</strong> | City: <strong>{{ user_info.city or 'Bengaluru' }}</strong> (Pincode: {{ user_info.pincode or '560001' }})
+                            </p>
+                        </div>
+                        <a href="/profile" style="color: #1b5e20; font-weight: 600; font-size: 13px; text-decoration: underline;"><i class="fa-solid fa-gear"></i> Manage Saved Location</a>
+                    </div>
+                    {% endif %}
+
+                    <div class="form-row-2">
+                        <div>
+                            <label for="pickup_date">Preferred Pickup Date</label>
+                            <input type="date" id="pickup_date" name="pickup_date" required min="{{ scrap_data.date_str }}">
+                        </div>
+                        <div>
+                            <label for="time_slot">Preferred Time Slot</label>
+                            <select id="time_slot" name="time_slot" required>
+                                <option value="Morning (9:00 AM - 12:00 PM)">Morning (9:00 AM - 12:00 PM)</option>
+                                <option value="Afternoon (12:00 PM - 4:00 PM)">Afternoon (12:00 PM - 4:00 PM)</option>
+                                <option value="Evening (4:00 PM - 7:00 PM)">Evening (4:00 PM - 7:00 PM)</option>
+                            </select>
+                        </div>
+                    </div>
+
+                    <div class="form-row-2">
+                        <div>
+                            <label for="phone">Phone Number for Pickup</label>
+                            <input type="tel" id="phone" name="phone" placeholder="10-digit mobile number" value="{{ user_info.phone }}" required>
+                        </div>
+                        <div>
+                            <label for="notes">Special Notes (Optional)</label>
+                            <input type="text" id="notes" name="notes" placeholder="e.g. Heavy items, 2nd floor...">
+                        </div>
+                    </div>
+
+                    <label for="address">Full Pickup Address</label>
+                    <textarea id="address" name="address" rows="3" placeholder="Enter house no, building, street, landmark, area, city..." required>{{ user_info.address }}</textarea>
+
+                    <div style="margin-top: 12px; display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; background: #f8fafc; padding: 10px 14px; border-radius: 8px; border: 1px solid #e2e8f0;">
+                        <span style="font-size: 13px; color: #475569;">
+                            <i class="fa-solid fa-crosshairs"></i> Spatial Coordinates: <strong>Lat: <span id="lat-disp">{{ "%.4f"|format(user_info.latitude or 12.9716) }}</span>, Lng: <span id="lng-disp">{{ "%.4f"|format(user_info.longitude or 77.5946) }}</span></strong>
+                        </span>
+                        <button type="button" onclick="detectCurrentLocation()" style="background: #ffffff; border: 1px solid #cbd5e1; padding: 6px 12px; border-radius: 6px; font-weight: 600; cursor: pointer; font-size: 12px;">
+                            <i class="fa-solid fa-location-crosshairs"></i> Use GPS Location
+                        </button>
+                    </div>
+
+                    <input type="hidden" id="latitude" name="latitude" value="{{ user_info.latitude or 12.9716 }}">
+                    <input type="hidden" id="longitude" name="longitude" value="{{ user_info.longitude or 77.5946 }}">
+                </div>
+            </div>
+
+            <!-- Right Sidebar: Live Payout Calculator Summary -->
+            <div class="booking-right-col">
+                <div class="payout-summary-card">
+                    <h3><i class="fa-solid fa-calculator"></i> Estimated Payout</h3>
+                    <p class="summary-subtitle">Real-time estimate based on today's live rates</p>
+
+                    <div class="selected-items-list" id="selected-items-list">
+                        <div class="empty-list-msg">
+                            <i class="fa-solid fa-basket-shopping"></i>
+                            <p>No scrap items selected yet.<br>Select quantity to view breakdown.</p>
+                        </div>
+                    </div>
+
+                    <div class="total-payout-row">
+                        <span>Total Estimated Payout:</span>
+                        <strong id="grand-total-display">₹0.00</strong>
+                    </div>
+
+                    <button type="submit" class="confirm-booking-btn" id="submit-btn" disabled>
+                        <i class="fa-regular fa-calendar-check"></i> Confirm Scrap Pickup
+                    </button>
+                    <p class="summary-disclaimer"><i class="fa-solid fa-circle-info"></i> Final weight & payout verified on-site by collector.</p>
+                </div>
+            </div>
+        </form>
+    </div>
+
+    <script>
+        function switchCategory(catName) {
+            document.querySelectorAll('.cat-btn').forEach(btn => btn.classList.remove('active'));
+            document.querySelectorAll('.category-panel').forEach(panel => panel.classList.remove('active'));
+
+            event.currentTarget.classList.add('active');
+            const targetPanel = document.getElementById('cat-panel-' + catName);
+            if (targetPanel) targetPanel.classList.add('active');
+        }
+
+        function adjustQty(code, change) {
+            const input = document.getElementById('qty-' + code);
+            if (!input) return;
+            let current = parseFloat(input.value) || 0;
+            current = Math.max(0, current + change);
+            input.value = current;
+            onQtyChange(code);
+        }
+
+        function onQtyChange(code) {
+            const input = document.getElementById('qty-' + code);
+            const card = document.getElementById('card-' + code);
+            const priceDisplay = document.getElementById('price-display-' + code);
+            if (!input) return;
+
+            const qty = parseFloat(input.value) || 0;
+            const rate = parseFloat(input.getAttribute('data-rate')) || 0;
+            const itemTotal = qty * rate;
+
+            if (qty > 0) {
+                if (card) card.classList.add('selected');
+                if (priceDisplay) priceDisplay.innerHTML = `Subtotal: <strong>₹${itemTotal.toFixed(2)}</strong>`;
+            } else {
+                if (card) card.classList.remove('selected');
+                if (priceDisplay) priceDisplay.innerHTML = `Item Price: <strong>₹0.00</strong>`;
+            }
+
+            recalculateTotal();
+        }
+
+        function recalculateTotal() {
+            const inputs = document.querySelectorAll('.qty-counter input');
+            let grandTotal = 0;
+            const selectedItems = [];
+
+            inputs.forEach(input => {
+                const qty = parseFloat(input.value) || 0;
+                if (qty > 0) {
+                    const code = input.getAttribute('data-code');
+                    const name = input.getAttribute('data-name');
+                    const rate = parseFloat(input.getAttribute('data-rate')) || 0;
+                    const unit = input.getAttribute('data-unit');
+                    const category = input.getAttribute('data-category');
+                    const subtotal = qty * rate;
+
+                    grandTotal += subtotal;
+                    selectedItems.push({
+                        code: code,
+                        name: name,
+                        category: category,
+                        qty: qty,
+                        unit: unit,
+                        rate: rate,
+                        subtotal: subtotal
+                    });
+                }
+            });
+
+            // Update UI list
+            const listContainer = document.getElementById('selected-items-list');
+            if (selectedItems.length === 0) {
+                listContainer.innerHTML = `
+                    <div class="empty-list-msg">
+                        <i class="fa-solid fa-basket-shopping"></i>
+                        <p>No scrap items selected yet.<br>Select quantity to view breakdown.</p>
+                    </div>`;
+                document.getElementById('submit-btn').disabled = true;
+            } else {
+                let html = '';
+                selectedItems.forEach(item => {
+                    html += `
+                        <div class="summary-item-row">
+                            <div>
+                                <strong>${item.name}</strong>
+                                <span>${item.qty} ${item.unit} × ₹${item.rate.toFixed(2)}</span>
+                            </div>
+                            <div class="summary-item-price">₹${item.subtotal.toFixed(2)}</div>
+                        </div>`;
+                });
+                listContainer.innerHTML = html;
+                document.getElementById('submit-btn').disabled = false;
+            }
+
+            // Update Grand Total
+            document.getElementById('grand-total-display').innerText = `₹${grandTotal.toFixed(2)}`;
+            document.getElementById('total_price_input').value = grandTotal.toFixed(2);
+            document.getElementById('items_json_input').value = JSON.stringify(selectedItems);
+        }
+
+        function detectCurrentLocation() {
+            if (navigator.geolocation) {
+                navigator.geolocation.getCurrentPosition(
+                    (position) => {
+                        const lat = position.coords.latitude;
+                        const lng = position.coords.longitude;
+                        document.getElementById('latitude').value = lat.toFixed(6);
+                        document.getElementById('longitude').value = lng.toFixed(6);
+                        document.getElementById('lat-disp').innerText = lat.toFixed(4);
+                        document.getElementById('lng-disp').innerText = lng.toFixed(4);
+                        alert("✓ GPS location auto-detected successfully for this pickup!");
+                    },
+                    (error) => {
+                        alert("Unable to detect GPS location. Your saved profile location will be used.");
+                    }
+                );
+            } else {
+                alert("Geolocation is not supported by your browser.");
+            }
+        }
+
+        // Auto set default date to today
+        document.addEventListener('DOMContentLoaded', () => {
+            const dateInput = document.getElementById('pickup_date');
+            if (dateInput && !dateInput.value) {
+                const today = new Date().toISOString().split('T')[0];
+                dateInput.value = today;
+            }
+        });
+    </script>
+</body>
+</html>

@@ -1,0 +1,187 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>My Pickup Requests | WasteTech</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+    <style>
+        .feedback-modal-overlay { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.6); z-index: 9999; justify-content: center; align-items: center; }
+        .feedback-modal-content { background: #ffffff; padding: 28px; border-radius: 16px; width: 90%; max-width: 500px; box-shadow: 0 10px 30px rgba(0,0,0,0.2); }
+        .feedback-modal-content label { font-weight: 600; font-size: 13px; color: #1e293b; margin-bottom: 6px; display: block; }
+        .feedback-modal-content input, .feedback-modal-content select, .feedback-modal-content textarea { width: 100%; padding: 10px 12px; border-radius: 8px; border: 1px solid #cbd5e1; margin-bottom: 14px; box-sizing: border-box; }
+    </style>
+</head>
+<body>
+    <nav class="navbar">
+        <div class="logo">
+            <i class="fa-solid fa-recycle"></i>
+            <div>
+                <h2>WasteTech</h2>
+                <span>Smart Scrap Collection System</span>
+            </div>
+        </div>
+
+        <div class="nav-links">
+            <a href="/"><i class="fa-solid fa-house"></i> Home</a>
+            <a href="/scrap-prices"><i class="fa-solid fa-tags"></i> Scrap Prices</a>
+            <a href="/request-pickup"><i class="fa-regular fa-calendar"></i> Book Pickup</a>
+            <a href="/my-pickups" class="active"><i class="fa-solid fa-boxes-packing"></i> My Pickups</a>
+        </div>
+
+        <div class="nav-buttons">
+            <a href="/profile" class="login-btn"><i class="fa-regular fa-id-card"></i> {{ session.username }}</a>
+            <a href="/logout" class="signup-btn"><i class="fa-solid fa-right-from-bracket"></i> Logout</a>
+            <a href="/collector/login" class="collector-nav-btn"><i class="fa-solid fa-truck-pickup"></i> Collector Portal</a>
+        </div>
+    </nav>
+
+    <div class="dashboard-container">
+        <div class="dashboard-header" style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap;">
+            <div>
+                <h1><i class="fa-solid fa-boxes-packing"></i> My Scrap Pickups</h1>
+                <p>Track the real-time status, assigned collector, and verified payout of your scrap pickup bookings.</p>
+            </div>
+            <a href="/request-pickup" class="primary-btn" style="margin-top: 10px;"><i class="fa-solid fa-plus"></i> New Pickup Request</a>
+        </div>
+
+        {% if success_message %}
+        <div class="auth-success" style="margin-bottom: 24px;">✓ {{ success_message }}</div>
+        {% endif %}
+
+        {% if pickups %}
+        <div class="pickups-list">
+            {% for p in pickups %}
+            <div class="pickup-card">
+                <div class="pickup-card-header">
+                    <div>
+                        <span class="pickup-id">Request #{{ p.id }}</span>
+                        <span class="pickup-date-badge"><i class="fa-regular fa-calendar-check"></i> {{ p.pickup_date }} ({{ p.time_slot }})</span>
+                    </div>
+                    <div>
+                        {% if p.status == 'Pending' %}
+                        <span class="status-badge pending"><i class="fa-solid fa-clock"></i> Pending Pickup</span>
+                        {% elif p.status == 'Assigned' %}
+                        <span class="status-badge assigned"><i class="fa-solid fa-truck-ramp-box"></i> Collector Assigned</span>
+                        {% elif p.status == 'Completed' %}
+                        <span class="status-badge completed"><i class="fa-solid fa-circle-check"></i> Completed & Paid</span>
+                        {% elif p.status == 'Cancelled' %}
+                        <span class="status-badge cancelled"><i class="fa-solid fa-ban"></i> Cancelled</span>
+                        {% endif %}
+                    </div>
+                </div>
+
+                <div class="pickup-card-body">
+                    <div class="pickup-items-table">
+                        <h4>Selected Scrap Items:</h4>
+                        {% if p['items'] %}
+                        <ul>
+                            {% for item in p['items'] %}
+                            <li>
+                                <span><strong>{{ item.name }}</strong> ({{ item.qty }} {{ item.unit }} × ₹{{ item.rate }})</span>
+                                <strong>₹{{ "%.2f"|format(item.subtotal) }}</strong>
+                            </li>
+                            {% endfor %}
+                        </ul>
+                        {% else %}
+                        <p class="no-items-text">Scrap items list recorded.</p>
+                        {% endif %}
+                    </div>
+
+                    <div class="pickup-details-col">
+                        <p><strong><i class="fa-solid fa-phone"></i> Contact Phone:</strong> {{ p.phone }}</p>
+                        <p><strong><i class="fa-solid fa-location-dot"></i> Address:</strong> {{ p.address }}</p>
+                        {% if p.collector_name != 'Unassigned' %}
+                        <p style="background: #e8f5e9; border: 1px solid #a5d6a7; padding: 8px 12px; border-radius: 8px; color: #1b5e20; font-size: 13px;">
+                            <strong><i class="fa-solid fa-user-gear"></i> Assigned Collector:</strong> {{ p.collector_name }} (📞 {{ p.collector_phone }})<br>
+                            <span style="font-size: 12px; color: #2e7d32;"><i class="fa-solid fa-route"></i> Nearest Distance: <strong>{{ p.distance_km }} km</strong> away</span>
+                        </p>
+                        {% endif %}
+                        {% if p.notes %}
+                        <p><strong><i class="fa-solid fa-note-sticky"></i> Notes:</strong> {{ p.notes }}</p>
+                        {% endif %}
+
+                        <div class="pickup-total-box">
+                            {% if p.status == 'Completed' %}
+                            <span>Verified Final Payout ({{ p.actual_weight }} kg):</span>
+                            <strong class="total-amount" style="color: #2e7d32;">₹{{ "%.2f"|format(p.final_amount) }}</strong>
+                            {% else %}
+                            <span>Estimated Payout:</span>
+                            <strong class="total-amount">₹{{ "%.2f"|format(p.total_price) }}</strong>
+                            {% endif %}
+                        </div>
+
+                        <div style="display: flex; gap: 8px; margin-top: 12px;">
+                            {% if p.status == 'Pending' or p.status == 'Assigned' %}
+                            <form method="post" action="/cancel-pickup/{{ p.id }}" style="flex: 1;" onsubmit="return confirm('Are you sure you want to cancel this pickup request?');">
+                                <button type="submit" class="cancel-request-btn" style="width: 100%;"><i class="fa-solid fa-xmark"></i> Cancel Booking</button>
+                            </form>
+                            {% endif %}
+                            
+                            <button type="button" class="secondary-btn" style="flex: 1; font-size: 12px;" onclick="openFeedbackModal({{ p.id }})">
+                                <i class="fa-solid fa-comment-dots"></i> Feedback / Issue
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            {% endfor %}
+        </div>
+        {% else %}
+        <div class="no-requests-box">
+            <i class="fa-solid fa-truck-loading"></i>
+            <h3>No scrap pickup bookings yet</h3>
+            <p>Ready to recycle and earn cash? Book your first scrap pickup in just a few clicks!</p>
+            <a href="/request-pickup" class="primary-btn" style="margin-top: 16px; display: inline-block;"><i class="fa-solid fa-calendar-plus"></i> Schedule Pickup Now</a>
+        </div>
+        {% endif %}
+    </div>
+
+    <!-- User Feedback / Complaint Modal -->
+    <div class="feedback-modal-overlay" id="feedback-modal">
+        <div class="feedback-modal-content">
+            <h3 style="margin-top: 0; color: #1e293b;"><i class="fa-solid fa-comments" style="color: #3b82f6;"></i> Submit Feedback or Report Issue</h3>
+            <form method="post" action="/submit-feedback">
+                <input type="hidden" id="modal_pickup_id" name="pickup_id" value="">
+
+                <label for="type">Feedback Type</label>
+                <select id="type" name="type">
+                    <option value="Feedback">⭐ General Feedback / Rating</option>
+                    <option value="Complaint">⚠️ Report Complaint / Issue</option>
+                </select>
+
+                <label for="subject">Subject</label>
+                <input type="text" id="subject" name="subject" placeholder="Brief summary of your feedback or issue" required>
+
+                <label for="rating">Rating (1 to 5 Stars)</label>
+                <select id="rating" name="rating">
+                    <option value="5">⭐⭐⭐⭐⭐ Excellent (5 Stars)</option>
+                    <option value="4">⭐⭐⭐⭐ Good (4 Stars)</option>
+                    <option value="3">⭐⭐⭐ Average (3 Stars)</option>
+                    <option value="2">⭐⭐ Poor (2 Stars)</option>
+                    <option value="1">⭐ Unsatisfactory (1 Star)</option>
+                </select>
+
+                <label for="message">Detailed Message</label>
+                <textarea id="message" name="message" rows="4" placeholder="Describe your experience or problem..." required></textarea>
+
+                <div style="display: flex; gap: 10px;">
+                    <button type="button" class="secondary-btn" style="flex: 1;" onclick="closeFeedbackModal()">Cancel</button>
+                    <button type="submit" class="primary-btn" style="flex: 2;"><i class="fa-solid fa-paper-plane"></i> Submit Ticket</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <script>
+        function openFeedbackModal(pickupId) {
+            document.getElementById('modal_pickup_id').value = pickupId;
+            document.getElementById('feedback-modal').style.display = 'flex';
+        }
+        function closeFeedbackModal() {
+            document.getElementById('feedback-modal').style.display = 'none';
+        }
+    </script>
+</body>
+</html>

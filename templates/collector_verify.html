@@ -1,0 +1,47 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Collector Verification | WasteTech</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+</head>
+<body class="auth-body">
+    <div class="auth-card">
+        <a href="/" class="back-home-link"><i class="fa-solid fa-arrow-left"></i> Back to Home</a>
+
+        <div class="collector-badge-header">
+            <i class="fa-solid fa-user-check"></i>
+            <h1>Verify Collector Account</h1>
+        </div>
+        
+        {% if email %}
+        <div class="email-info-box">
+            <p>An OTP code has been sent to</p>
+            <strong class="email-highlight">{{ email }}</strong>
+        </div>
+        {% endif %}
+
+        {% if message %}
+        <p class="auth-error">{{ message }}</p>
+        {% endif %}
+
+        {% if success_message %}
+        <p class="auth-success">{{ success_message }}</p>
+        {% endif %}
+
+        <form method="post" action="/collector/verify-otp">
+            <label for="code">Enter 6-Digit OTP Code</label>
+            <input type="text" id="code" name="code" placeholder="e.g. 123456" maxlength="6" pattern="[0-9]{6}" required autofocus autocomplete="one-time-code">
+
+            <button type="submit" class="collector-submit-btn">Verify Collector Account</button>
+        </form>
+
+        <form method="post" action="/collector/resend-otp" style="margin-top: 16px;">
+            <p class="auth-link">Didn't receive code?</p>
+            <button type="submit" class="resend-btn">Resend OTP</button>
+        </form>
+    </div>
+</body>
+</html>

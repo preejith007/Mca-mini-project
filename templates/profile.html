@@ -1,0 +1,168 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>My Saved Location & Profile | WasteTech</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+    <style>
+        .profile-container { max-width: 800px; margin: 40px auto; padding: 0 20px; }
+        .location-card-box { background: #ffffff; border-radius: 16px; padding: 28px; box-shadow: 0 10px 30px rgba(0,0,0,0.06); border: 1px solid #eef2f6; }
+        .gps-btn { background: #e8f5e9; color: #2e7d32; border: 1px solid #a5d6a7; padding: 10px 16px; border-radius: 8px; font-weight: 600; cursor: pointer; display: inline-flex; align-items: center; gap: 8px; margin-bottom: 16px; transition: all 0.2s; }
+        .gps-btn:hover { background: #c8e6c9; }
+        #map-picker { height: 220px; border-radius: 12px; margin-top: 12px; margin-bottom: 20px; border: 1px solid #cbd5e1; }
+        .latlng-badge { background: #f1f5f9; padding: 8px 12px; border-radius: 6px; font-family: monospace; font-size: 13px; color: #334155; display: inline-block; margin-bottom: 16px; }
+    </style>
+</head>
+<body>
+    <nav class="navbar">
+        <div class="logo">
+            <i class="fa-solid fa-recycle"></i>
+            <div>
+                <h2>WasteTech</h2>
+                <span>Smart Scrap Collection System</span>
+            </div>
+        </div>
+        <div class="nav-links">
+            <a href="/"><i class="fa-solid fa-house"></i> Home</a>
+            <a href="/scrap-prices"><i class="fa-solid fa-tags"></i> Scrap Prices</a>
+            <a href="/request-pickup"><i class="fa-regular fa-calendar"></i> Book Pickup</a>
+            <a href="/my-pickups"><i class="fa-solid fa-boxes-packing"></i> My Pickups</a>
+        </div>
+        <div class="nav-buttons">
+            <a href="/profile" class="login-btn active"><i class="fa-regular fa-id-card"></i> {{ session.username }}</a>
+            <a href="/logout" class="signup-btn"><i class="fa-solid fa-right-from-bracket"></i> Logout</a>
+        </div>
+    </nav>
+
+    <div class="profile-container">
+        <div class="location-card-box">
+            <a href="/" class="back-home-link" style="margin-bottom: 16px; display: inline-block;"><i class="fa-solid fa-arrow-left"></i> Back to Home</a>
+            
+            <h1><i class="fa-solid fa-location-dot" style="color: #2e7d32;"></i> Saved Pickup Location</h1>
+            <p style="color: #64748b; margin-bottom: 20px;">Save your default address & GPS coordinates like Flipkart! Your saved location will be auto-filled for all scrap pickups, eliminating manual entry.</p>
+
+            {% if success_message %}
+            <div class="auth-success" style="margin-bottom: 20px;">✓ {{ success_message }}</div>
+            {% endif %}
+
+            {% if message %}
+            <div class="auth-error" style="margin-bottom: 20px;">{{ message }}</div>
+            {% endif %}
+
+            <form method="post" action="/profile">
+                <div class="form-row-2">
+                    <div>
+                        <label>Account Username</label>
+                        <input type="text" value="{{ user.username }}" disabled class="disabled-input">
+                    </div>
+                    <div>
+                        <label>Email Address</label>
+                        <input type="email" value="{{ user.email }}" disabled class="disabled-input">
+                    </div>
+                </div>
+
+                <div class="form-row-2">
+                    <div>
+                        <label for="phone">Contact Phone Number</label>
+                        <input type="tel" id="phone" name="phone" placeholder="10-digit mobile number" value="{{ user.phone }}" required>
+                    </div>
+                    <div>
+                        <label for="location_label">Address Label (e.g. Home, Office)</label>
+                        <input type="text" id="location_label" name="location_label" placeholder="Home / Work / Apartment" value="{{ user.location_label or 'Home' }}" required>
+                    </div>
+                </div>
+
+                <label for="address">Full Pickup Address</label>
+                <textarea id="address" name="address" rows="3" placeholder="Enter house/flat no, building name, street, landmark..." required>{{ user.address }}</textarea>
+
+                <div class="form-row-2">
+                    <div>
+                        <label for="city">City / Area</label>
+                        <input type="text" id="city" name="city" value="{{ user.city or 'Bengaluru' }}" required>
+                    </div>
+                    <div>
+                        <label for="pincode">Pincode</label>
+                        <input type="text" id="pincode" name="pincode" value="{{ user.pincode or '560001' }}" required>
+                    </div>
+                </div>
+
+                <hr style="margin: 20px 0; border: none; border-top: 1px dashed #cbd5e1;">
+
+                <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap;">
+                    <label style="font-weight: 700; color: #1e293b;"><i class="fa-solid fa-crosshairs"></i> GPS Coordinates for Nearest Collector Algorithm</label>
+                    <button type="button" class="gps-btn" onclick="detectGPSLocation()">
+                        <i class="fa-solid fa-location-crosshairs"></i> Auto-Detect My GPS Location
+                    </button>
+                </div>
+
+                <div class="latlng-badge" id="coordinates-text">
+                    Lat: <strong id="lat-disp">{{ "%.4f"|format(user.latitude) }}</strong> | Lng: <strong id="lng-disp">{{ "%.4f"|format(user.longitude) }}</strong>
+                </div>
+
+                <div id="map-picker"></div>
+
+                <input type="hidden" id="latitude" name="latitude" value="{{ user.latitude }}">
+                <input type="hidden" id="longitude" name="longitude" value="{{ user.longitude }}">
+
+                <button type="submit" class="primary-btn" style="width: 100%; margin-top: 10px; padding: 14px; font-size: 16px;">
+                    <i class="fa-solid fa-floppy-disk"></i> Save Location & Profile
+                </button>
+            </form>
+        </div>
+    </div>
+
+    <script>
+        const initialLat = {{ user.latitude or 12.9716 }};
+        const initialLng = {{ user.longitude or 77.5946 }};
+
+        const map = L.map('map-picker').setView([initialLat, initialLng], 14);
+        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+            maxZoom: 19,
+            attribution: '© OpenStreetMap'
+        }).addTo(map);
+
+        let marker = L.marker([initialLat, initialLng], { draggable: true }).addTo(map);
+
+        function updateCoords(lat, lng) {
+            document.getElementById('latitude').value = lat.toFixed(6);
+            document.getElementById('longitude').value = lng.toFixed(6);
+            document.getElementById('lat-disp').innerText = lat.toFixed(4);
+            document.getElementById('lng-disp').innerText = lng.toFixed(4);
+        }
+
+        marker.on('dragend', function (e) {
+            const pos = marker.getLatLng();
+            updateCoords(pos.lat, pos.lng);
+        });
+
+        map.on('click', function(e) {
+            marker.setLatLng(e.latlng);
+            updateCoords(e.latlng.lat, e.latlng.lng);
+        });
+
+        function detectGPSLocation() {
+            if (navigator.geolocation) {
+                navigator.geolocation.getCurrentPosition(
+                    (position) => {
+                        const lat = position.coords.latitude;
+                        const lng = position.coords.longitude;
+                        map.setView([lat, lng], 15);
+                        marker.setLatLng([lat, lng]);
+                        updateCoords(lat, lng);
+                        alert("✓ GPS location auto-detected successfully!");
+                    },
+                    (error) => {
+                        alert("Unable to retrieve your GPS location. Please click on the map to set your location pin.");
+                    }
+                );
+            } else {
+                alert("Geolocation is not supported by your browser.");
+            }
+        }
+    </script>
+</body>
+</html>

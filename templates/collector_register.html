@@ -1,0 +1,44 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Collector Registration | WasteTech</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+</head>
+<body class="auth-body">
+    <div class="auth-card">
+        <a href="/" class="back-home-link"><i class="fa-solid fa-arrow-left"></i> Back to Home</a>
+        
+        <div class="collector-badge-header">
+            <i class="fa-solid fa-truck-pickup"></i>
+            <h1>Scrap Collector Registration</h1>
+        </div>
+
+        {% if message %}
+        <p class="auth-error">{{ message }}</p>
+        {% endif %}
+
+        <form method="post" action="/collector/register">
+            <label for="username">Collector Username</label>
+            <input type="text" id="username" name="username" placeholder="Choose username" required>
+
+            <label for="email">Email Address</label>
+            <input type="email" id="email" name="email" placeholder="Enter email" required>
+
+            <label for="phone">Phone Number</label>
+            <input type="tel" id="phone" name="phone" placeholder="Enter phone number" required>
+
+            <label for="password">Password</label>
+            <input type="password" id="password" name="password" placeholder="Create password" minlength="6" required>
+            <p class="password-hint">Must be at least 6 characters with letters, numbers & special characters (e.g. !@#$%)</p>
+
+            <button type="submit" class="collector-submit-btn"><i class="fa-solid fa-user-plus"></i> Register as Collector</button>
+        </form>
+
+        <p class="auth-link">Already registered? <a href="/collector/login">Collector Login</a></p>
+        <p class="auth-link" style="margin-top: 6px;"><a href="/register">Normal User Register</a></p>
+    </div>
+</body>
+</html>

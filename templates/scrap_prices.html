@@ -1,0 +1,108 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Today's Live Scrap Prices | WasteTech</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+</head>
+<body>
+    <nav class="navbar">
+        <div class="logo">
+            <i class="fa-solid fa-recycle"></i>
+            <div>
+                <h2>WasteTech</h2>
+                <span>Smart Scrap Collection System</span>
+            </div>
+        </div>
+
+        <div class="nav-links">
+            <a href="/"><i class="fa-solid fa-house"></i> Home</a>
+            <a href="/scrap-prices" class="active"><i class="fa-solid fa-tags"></i> Scrap Prices</a>
+            <a href="/request-pickup"><i class="fa-regular fa-calendar"></i> Book Pickup</a>
+            {% if session.username %}
+            <a href="/my-pickups"><i class="fa-solid fa-boxes-packing"></i> My Pickups</a>
+            {% endif %}
+        </div>
+
+        <div class="nav-buttons">
+            {% if session.username %}
+            <a href="/profile" class="login-btn"><i class="fa-regular fa-id-card"></i> {{ session.username }}</a>
+            <a href="/logout" class="signup-btn"><i class="fa-solid fa-right-from-bracket"></i> Logout</a>
+            {% else %}
+            <a href="/login" class="login-btn"><i class="fa-regular fa-user"></i> Login</a>
+            <a href="/register" class="signup-btn">Sign Up</a>
+            {% endif %}
+        </div>
+    </nav>
+
+    <div class="prices-page-container">
+        <div class="prices-header">
+            <h1><i class="fa-solid fa-chart-line"></i> Today's Live Scrap Market Rates</h1>
+            <p>Real-time scrap prices updated daily. Sell your scrap items at guaranteed best market rates!</p>
+
+            <div class="live-date-badge">
+                <i class="fa-solid fa-circle-dot live-pulse"></i> Market Rates Updated: <strong>{{ scrap_data.date_display }}</strong>
+            </div>
+        </div>
+
+        <!-- Search / Filter bar -->
+        <div class="prices-filter-bar">
+            <input type="text" id="price-search" placeholder="Search scrap item (e.g. Newspaper, Copper, Mobile)..." onkeyup="filterPrices()">
+        </div>
+
+        <!-- Category Grid -->
+        {% for cat, items in scrap_data.categories.items() %}
+        <div class="category-price-section" id="section-{{ cat }}">
+            <h2>
+                {% if cat == 'Paper' %}<i class="fa-solid fa-newspaper"></i>
+                {% elif cat == 'Plastic' %}<i class="fa-solid fa-bottle-water"></i>
+                {% elif cat == 'Metals' %}<i class="fa-solid fa-cubes"></i>
+                {% elif cat == 'E-Waste' %}<i class="fa-solid fa-laptop"></i>
+                {% elif cat == 'Vehicle' %}<i class="fa-solid fa-car"></i>
+                {% else %}<i class="fa-solid fa-box"></i>
+                {% endif %}
+                {{ cat }} Scrap Rates
+            </h2>
+
+            <div class="price-cards-grid">
+                {% for item in items %}
+                <div class="price-rate-card" data-name="{{ item.name|lower }}">
+                    <div class="price-card-icon"><i class="fa-solid {{ item.icon }}"></i></div>
+                    <div class="price-card-info">
+                        <h3>{{ item.name }}</h3>
+                        <p class="price-unit-tag">Per {{ item.unit }}</p>
+                        <div class="price-amount">
+                            ₹{{ "%.2f"|format(item.rate) }}
+                            {% if item.trend == 'up' %}<span class="trend-badge up"><i class="fa-solid fa-arrow-trend-up"></i> +{{ item.change }}%</span>
+                            {% elif item.trend == 'down' %}<span class="trend-badge down"><i class="fa-solid fa-arrow-trend-down"></i> {{ item.change }}%</span>
+                            {% else %}<span class="trend-badge stable"><i class="fa-solid fa-minus"></i> Stable</span>
+                            {% endif %}
+                        </div>
+                    </div>
+                    <a href="/request-pickup" class="sell-now-btn">Sell Now <i class="fa-solid fa-arrow-right"></i></a>
+                </div>
+                {% endfor %}
+            </div>
+        </div>
+        {% endfor %}
+    </div>
+
+    <script>
+        function filterPrices() {
+            const query = document.getElementById('price-search').value.toLowerCase();
+            const cards = document.querySelectorAll('.price-rate-card');
+            
+            cards.forEach(card => {
+                const name = card.getAttribute('data-name');
+                if (name.includes(query)) {
+                    card.style.display = 'flex';
+                } else {
+                    card.style.display = 'none';
+                }
+            });
+        }
+    </script>
+</body>
+</html>

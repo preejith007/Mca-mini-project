@@ -1,0 +1,373 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Admin System Control Panel | WasteTech</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+    <style>
+        body { background-color: #0f172a; color: #f8fafc; font-family: 'Segoe UI', system-ui, sans-serif; }
+        .admin-navbar { background: #1e293b; padding: 16px 32px; display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid #334155; }
+        .admin-navbar .logo { display: flex; align-items: center; gap: 12px; }
+        .admin-navbar h2 { margin: 0; color: #38bdf8; font-size: 20px; }
+        .admin-navbar span { font-size: 12px; color: #94a3b8; }
+        .admin-container { max-width: 1300px; margin: 30px auto; padding: 0 24px; }
+        
+        .admin-kpi-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 16px; margin-bottom: 30px; }
+        .kpi-card { background: #1e293b; border: 1px solid #334155; border-radius: 14px; padding: 20px; display: flex; align-items: center; gap: 16px; }
+        .kpi-card i { font-size: 28px; width: 54px; height: 54px; border-radius: 12px; display: flex; justify-content: center; align-items: center; background: rgba(56, 189, 248, 0.1); color: #38bdf8; }
+        .kpi-card h3 { margin: 0; font-size: 24px; color: #ffffff; }
+        .kpi-card p { margin: 2px 0 0; font-size: 13px; color: #94a3b8; }
+        
+        /* Tab Navigation */
+        .admin-tabs { display: flex; gap: 10px; border-bottom: 1px solid #334155; margin-bottom: 24px; flex-wrap: wrap; }
+        .tab-btn { background: #1e293b; color: #94a3b8; border: 1px solid #334155; padding: 12px 20px; border-radius: 10px 10px 0 0; font-weight: 600; cursor: pointer; display: flex; align-items: center; gap: 8px; font-size: 14px; }
+        .tab-btn.active { background: #38bdf8; color: #0f172a; border-color: #38bdf8; font-weight: 700; }
+        
+        .tab-content { display: none; background: #1e293b; border-radius: 0 14px 14px 14px; padding: 24px; border: 1px solid #334155; }
+        .tab-content.active { display: block; }
+        
+        .admin-table { width: 100%; border-collapse: collapse; margin-top: 16px; font-size: 14px; }
+        .admin-table th { background: #0f172a; color: #94a3b8; text-align: left; padding: 12px 14px; font-size: 12px; text-transform: uppercase; letter-spacing: 0.5px; border-bottom: 1px solid #334155; }
+        .admin-table td { padding: 14px; border-bottom: 1px solid #334155; color: #e2e8f0; }
+        .admin-table tr:hover { background: rgba(255,255,255,0.02); }
+
+        .badge-status { padding: 4px 10px; border-radius: 20px; font-size: 12px; font-weight: 600; display: inline-block; }
+        .badge-status.active { background: rgba(16, 185, 129, 0.2); color: #34d399; }
+        .badge-status.inactive { background: rgba(239, 68, 68, 0.2); color: #f87171; }
+        .badge-status.pending { background: rgba(245, 158, 11, 0.2); color: #fbbf24; }
+        .badge-status.approved { background: rgba(59, 130, 246, 0.2); color: #60a5fa; }
+        
+        .action-btn { background: #334155; color: #ffffff; border: none; padding: 6px 12px; border-radius: 6px; font-size: 12px; font-weight: 600; cursor: pointer; margin-right: 4px; }
+        .action-btn.btn-approve { background: #059669; }
+        .action-btn.btn-ban { background: #dc2626; }
+        .action-btn.btn-resolve { background: #2563eb; }
+        .search-bar-admin { width: 100%; max-width: 350px; padding: 10px 14px; border-radius: 8px; border: 1px solid #475569; background: #0f172a; color: #ffffff; font-size: 14px; }
+    </style>
+</head>
+<body>
+    <nav class="admin-navbar">
+        <div class="logo">
+            <i class="fa-solid fa-shield-halved" style="font-size: 24px; color: #38bdf8;"></i>
+            <div>
+                <h2>WasteTech Master Control</h2>
+                <span>System Administrator Dashboard</span>
+            </div>
+        </div>
+        <div style="display: flex; align-items: center; gap: 16px;">
+            <span style="color: #cbd5e1; font-size: 14px;"><i class="fa-solid fa-user-gear"></i> Admin: <strong>{{ admin_name }}</strong></span>
+            <a href="/" target="_blank" style="color: #94a3b8; text-decoration: none; font-size: 13px;"><i class="fa-solid fa-globe"></i> View Site</a>
+            <a href="/admin/logout" style="background: #ef4444; color: #fff; padding: 8px 14px; border-radius: 8px; text-decoration: none; font-size: 13px; font-weight: 600;"><i class="fa-solid fa-right-from-bracket"></i> Logout</a>
+        </div>
+    </nav>
+
+    <div class="admin-container">
+        <!-- KPI Metrics Header -->
+        <div class="admin-kpi-grid">
+            <div class="kpi-card">
+                <i class="fa-solid fa-users"></i>
+                <div>
+                    <h3>{{ metrics.total_users }}</h3>
+                    <p>Total Registered Users</p>
+                </div>
+            </div>
+            <div class="kpi-card">
+                <i class="fa-solid fa-truck-pickup" style="color: #34d399; background: rgba(52,211,153,0.1);"></i>
+                <div>
+                    <h3>{{ metrics.total_collectors }}</h3>
+                    <p>Scrap Collectors ({{ metrics.active_collectors }} Active)</p>
+                </div>
+            </div>
+            <div class="kpi-card">
+                <i class="fa-solid fa-boxes-packing" style="color: #fbbf24; background: rgba(251,191,36,0.1);"></i>
+                <div>
+                    <h3>{{ metrics.total_pickups }}</h3>
+                    <p>Total Pickup Requests</p>
+                </div>
+            </div>
+            <div class="kpi-card">
+                <i class="fa-solid fa-weight-hanging" style="color: #a78bfa; background: rgba(167,139,250,0.1);"></i>
+                <div>
+                    <h3>{{ "%.1f"|format(metrics.total_volume_kg) }} kg</h3>
+                    <p>Total Recycled Scrap</p>
+                </div>
+            </div>
+            <div class="kpi-card">
+                <i class="fa-solid fa-indian-rupee-sign" style="color: #4ade80; background: rgba(74,222,128,0.1);"></i>
+                <div>
+                    <h3>₹{{ "%.2f"|format(metrics.total_payout) }}</h3>
+                    <p>Total Payout Volume</p>
+                </div>
+            </div>
+            <div class="kpi-card">
+                <i class="fa-solid fa-triangle-exclamation" style="color: #f87171; background: rgba(248,113,113,0.1);"></i>
+                <div>
+                    <h3>{{ metrics.pending_complaints }}</h3>
+                    <p>Pending Tickets</p>
+                </div>
+            </div>
+        </div>
+
+        <!-- Navigation Tabs -->
+        <div class="admin-tabs">
+            <button class="tab-btn active" onclick="switchAdminTab('users-tab')"><i class="fa-solid fa-users"></i> Users Management ({{ users|length }})</button>
+            <button class="tab-btn" onclick="switchAdminTab('collectors-tab')"><i class="fa-solid fa-truck-pickup"></i> Collectors Management ({{ collectors|length }})</button>
+            <button class="tab-btn" onclick="switchAdminTab('pickups-tab')"><i class="fa-solid fa-list-check"></i> Master Pickups & Payouts ({{ pickups|length }})</button>
+            <button class="tab-btn" onclick="switchAdminTab('feedback-tab')"><i class="fa-solid fa-comments"></i> Complaints & Feedback ({{ feedback|length }})</button>
+        </div>
+
+        <!-- TAB 1: User Management -->
+        <div class="tab-content active" id="users-tab">
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px;">
+                <h3 style="margin: 0; color: #38bdf8;"><i class="fa-solid fa-user-gear"></i> Registered System Users</h3>
+                <input type="text" id="user-search" class="search-bar-admin" placeholder="Search user by name, email, phone..." onkeyup="filterAdminTable('user-table', this.value)">
+            </div>
+            <table class="admin-table" id="user-table">
+                <thead>
+                    <tr>
+                        <th>ID</th>
+                        <th>User Name</th>
+                        <th>Email Address</th>
+                        <th>Phone</th>
+                        <th>Address / City</th>
+                        <th>Account Status</th>
+                        <th>Registered Date</th>
+                        <th>Actions</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for u in users %}
+                    <tr>
+                        <td>#{{ u.id }}</td>
+                        <td><strong>{{ u.username }}</strong></td>
+                        <td>{{ u.email }}</td>
+                        <td>{{ u.phone }}</td>
+                        <td>{{ u.address }}</td>
+                        <td>
+                            {% if u.account_status == 'Active' %}
+                            <span class="badge-status active">Active</span>
+                            {% else %}
+                            <span class="badge-status inactive">Deactivated</span>
+                            {% endif %}
+                        </td>
+                        <td>{{ u.created_at[:10] }}</td>
+                        <td>
+                            <form method="post" action="/admin/user/toggle-status/{{ u.id }}" style="display: inline;">
+                                <input type="hidden" name="status" value="{% if u.account_status == 'Active' %}Deactivated{% else %}Active{% endif %}">
+                                <button type="submit" class="action-btn {% if u.account_status == 'Active' %}btn-ban{% else %}btn-approve{% endif %}">
+                                    {% if u.account_status == 'Active' %}Deactivate{% else %}Activate{% endif %}
+                                </button>
+                            </form>
+                            <form method="post" action="/admin/user/delete/{{ u.id }}" style="display: inline;" onsubmit="return confirm('Delete user account permanently?');">
+                                <button type="submit" class="action-btn" style="background: #991b1b;"><i class="fa-solid fa-trash"></i></button>
+                            </form>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+
+        <!-- TAB 2: Collector Management -->
+        <div class="tab-content" id="collectors-tab">
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px;">
+                <h3 style="margin: 0; color: #38bdf8;"><i class="fa-solid fa-truck-pickup"></i> Registered Scrap Collectors</h3>
+                <input type="text" id="collector-search" class="search-bar-admin" placeholder="Search collector by name, zone..." onkeyup="filterAdminTable('collector-table', this.value)">
+            </div>
+            <table class="admin-table" id="collector-table">
+                <thead>
+                    <tr>
+                        <th>ID</th>
+                        <th>Collector Name</th>
+                        <th>Contact Phone</th>
+                        <th>Base Zone / Address</th>
+                        <th>Spatial Coords</th>
+                        <th>Approval</th>
+                        <th>Live Status</th>
+                        <th>Account Status</th>
+                        <th>Actions</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for c in collectors %}
+                    <tr>
+                        <td>#{{ c.id }}</td>
+                        <td><strong>{{ c.username }}</strong></td>
+                        <td>{{ c.phone }}</td>
+                        <td>{{ c.address }}</td>
+                        <td><small>Lat: {{ "%.4f"|format(c.latitude) }}, Lng: {{ "%.4f"|format(c.longitude) }}</small></td>
+                        <td>
+                            {% if c.approval_status == 'Approved' %}
+                            <span class="badge-status approved">Approved</span>
+                            {% else %}
+                            <span class="badge-status pending">Pending Approval</span>
+                            {% endif %}
+                        </td>
+                        <td>
+                            {% if c.availability_status == 1 %}
+                            <span style="color: #34d399;">🟢 Online</span>
+                            {% else %}
+                            <span style="color: #94a3b8;">🔴 Offline</span>
+                            {% endif %}
+                        </td>
+                        <td>
+                            {% if c.account_status == 'Active' %}
+                            <span class="badge-status active">Active</span>
+                            {% else %}
+                            <span class="badge-status inactive">Banned</span>
+                            {% endif %}
+                        </td>
+                        <td>
+                            {% if c.approval_status != 'Approved' %}
+                            <form method="post" action="/admin/collector/approve/{{ c.id }}" style="display: inline;">
+                                <input type="hidden" name="approval_status" value="Approved">
+                                <button type="submit" class="action-btn btn-approve">Approve</button>
+                            </form>
+                            {% endif %}
+                            <form method="post" action="/admin/collector/toggle-status/{{ c.id }}" style="display: inline;">
+                                <input type="hidden" name="status" value="{% if c.account_status == 'Active' %}Deactivated{% else %}Active{% endif %}">
+                                <button type="submit" class="action-btn {% if c.account_status == 'Active' %}btn-ban{% else %}btn-approve{% endif %}">
+                                    {% if c.account_status == 'Active' %}Deactivate{% else %}Activate{% endif %}
+                                </button>
+                            </form>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+
+        <!-- TAB 3: Master Pickups & Payouts Ledger -->
+        <div class="tab-content" id="pickups-tab">
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px;">
+                <h3 style="margin: 0; color: #38bdf8;"><i class="fa-solid fa-list-check"></i> Master Pickup Requests Audit Trail</h3>
+                <input type="text" id="pickup-search" class="search-bar-admin" placeholder="Search request by user, ID, status..." onkeyup="filterAdminTable('pickup-table', this.value)">
+            </div>
+            <table class="admin-table" id="pickup-table">
+                <thead>
+                    <tr>
+                        <th>Req #</th>
+                        <th>User Name</th>
+                        <th>Scrap Type</th>
+                        <th>Est. Weight</th>
+                        <th>Actual Weight</th>
+                        <th>Assigned Collector</th>
+                        <th>Nearest Dist</th>
+                        <th>Payout Amount</th>
+                        <th>Status</th>
+                        <th>Date & Slot</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for p in pickups %}
+                    <tr>
+                        <td>#{{ p.id }}</td>
+                        <td><strong>{{ p.user_name }}</strong></td>
+                        <td>{{ p.scrap_type }}</td>
+                        <td>{{ p.estimated_weight }} kg</td>
+                        <td><strong>{% if p.actual_weight > 0 %}{{ p.actual_weight }} kg{% else %}-{% endif %}</strong></td>
+                        <td>{{ p.collector_name }}</td>
+                        <td>{{ p.distance_km }} km</td>
+                        <td>
+                            {% if p.status == 'Completed' %}
+                            <strong style="color: #34d399;">₹{{ "%.2f"|format(p.final_amount) }}</strong>
+                            {% else %}
+                            ₹{{ "%.2f"|format(p.total_price) }} (Est)
+                            {% endif %}
+                        </td>
+                        <td>
+                            {% if p.status == 'Pending' %}
+                            <span class="badge-status pending">Pending</span>
+                            {% elif p.status == 'Assigned' %}
+                            <span class="badge-status approved">Assigned</span>
+                            {% elif p.status == 'Completed' %}
+                            <span class="badge-status active">Completed</span>
+                            {% elif p.status == 'Cancelled' %}
+                            <span class="badge-status inactive">Cancelled</span>
+                            {% endif %}
+                        </td>
+                        <td><small>{{ p.pickup_date }} ({{ p.time_slot[:10] }}...)</small></td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+
+        <!-- TAB 4: Complaints & Feedback Management -->
+        <div class="tab-content" id="feedback-tab">
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px;">
+                <h3 style="margin: 0; color: #38bdf8;"><i class="fa-solid fa-comments"></i> User Complaints & Collector Feedback</h3>
+            </div>
+            <table class="admin-table" id="feedback-table">
+                <thead>
+                    <tr>
+                        <th>ID</th>
+                        <th>User Name</th>
+                        <th>Type</th>
+                        <th>Subject</th>
+                        <th>Message</th>
+                        <th>Rating</th>
+                        <th>Collector Involved</th>
+                        <th>Status</th>
+                        <th>Actions</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for f in feedback %}
+                    <tr>
+                        <td>#{{ f.id }}</td>
+                        <td><strong>{{ f.user_name }}</strong></td>
+                        <td>
+                            {% if f.type == 'Complaint' %}
+                            <span style="color: #f87171; font-weight: bold;"><i class="fa-solid fa-triangle-exclamation"></i> Complaint</span>
+                            {% else %}
+                            <span style="color: #34d399; font-weight: bold;"><i class="fa-solid fa-star"></i> Feedback</span>
+                            {% endif %}
+                        </td>
+                        <td><strong>{{ f.subject }}</strong></td>
+                        <td style="max-width: 250px;">{{ f.message }}</td>
+                        <td>{{ "⭐" * f.rating }}</td>
+                        <td>{{ f.collector_name }}</td>
+                        <td>
+                            {% if f.status == 'Pending' %}
+                            <span class="badge-status pending">Pending</span>
+                            {% else %}
+                            <span class="badge-status active">Resolved</span>
+                            {% endif %}
+                        </td>
+                        <td>
+                            {% if f.status == 'Pending' %}
+                            <form method="post" action="/admin/complaint/resolve/{{ f.id }}" style="display: inline;">
+                                <button type="submit" class="action-btn btn-resolve"><i class="fa-solid fa-check"></i> Mark Resolved</button>
+                            </form>
+                            {% endif %}
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+    <script>
+        function switchAdminTab(tabId) {
+            document.querySelectorAll('.tab-btn').forEach(btn => btn.classList.remove('active'));
+            document.querySelectorAll('.tab-content').forEach(content => content.classList.remove('active'));
+
+            event.currentTarget.classList.add('active');
+            const target = document.getElementById(tabId);
+            if (target) target.classList.add('active');
+        }
+
+        function filterAdminTable(tableId, query) {
+            const trs = document.querySelectorAll('#' + tableId + ' tbody tr');
+            const q = query.toLowerCase();
+            trs.forEach(tr => {
+                const text = tr.innerText.toLowerCase();
+                tr.style.display = text.includes(q) ? '' : 'none';
+            });
+        }
+    </script>
+</body>
+</html>

@@ -1,0 +1,41 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Verify Account | WasteTech</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+</head>
+<body class="auth-body">
+    <div class="auth-card">
+        <h1>Verify Account</h1>
+        
+        {% if email %}
+        <div class="email-info-box">
+            <p>An OTP code has been sent to</p>
+            <strong class="email-highlight">{{ email }}</strong>
+        </div>
+        {% endif %}
+
+        {% if message %}
+        <p class="auth-error">{{ message }}</p>
+        {% endif %}
+
+        {% if success_message %}
+        <p class="auth-success">{{ success_message }}</p>
+        {% endif %}
+
+        <form method="post" action="/verify-otp">
+            <label for="code">Enter 6-Digit OTP Code</label>
+            <input type="text" id="code" name="code" placeholder="e.g. 123456" maxlength="6" pattern="[0-9]{6}" required autofocus autocomplete="one-time-code">
+
+            <button type="submit">Verify OTP</button>
+        </form>
+
+        <form method="post" action="/resend-otp" style="margin-top: 16px;">
+            <p class="auth-link">Didn't receive code?</p>
+            <button type="submit" class="resend-btn">Resend OTP</button>
+        </form>
+    </div>
+</body>
+</html>

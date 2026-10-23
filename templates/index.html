@@ -1,0 +1,156 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>WasteTech | Smart Scrap Collection</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+</head>
+<body>
+    <nav class="navbar">
+        <div class="logo">
+            <i class="fa-solid fa-recycle"></i>
+            <div>
+                <h2>WasteTech</h2>
+                <span>Smart Scrap Collection System</span>
+            </div>
+        </div>
+
+        <div class="nav-links">
+            <a href="/" class="active">Home</a>
+            <a href="/scrap-prices">Scrap Prices</a>
+            <a href="/request-pickup">Book Pickup</a>
+            {% if session.username %}
+            <a href="/my-pickups">My Pickups</a>
+            {% endif %}
+            <a href="#how-it-works">How It Works</a>
+        </div>
+
+        <div class="nav-buttons">
+            {% if session.is_collector %}
+            <a href="/collector/dashboard" class="collector-nav-btn"><i class="fa-solid fa-gauge"></i> Collector Dashboard</a>
+            <a href="/collector/logout" class="signup-btn"><i class="fa-solid fa-right-from-bracket"></i> Logout</a>
+            {% elif session.is_admin %}
+            <a href="/admin/dashboard" class="collector-nav-btn" style="background: #38bdf8; color: #0f172a;"><i class="fa-solid fa-shield-halved"></i> Admin Control Panel</a>
+            <a href="/admin/logout" class="signup-btn"><i class="fa-solid fa-right-from-bracket"></i> Logout</a>
+            {% elif session.username %}
+            <a href="/profile" class="login-btn"><i class="fa-regular fa-id-card"></i> {{ session.username }}</a>
+            <a href="/logout" class="signup-btn"><i class="fa-solid fa-right-from-bracket"></i> Logout</a>
+            <a href="/collector/login" class="collector-nav-btn"><i class="fa-solid fa-truck-pickup"></i> Collector Portal</a>
+            {% else %}
+            <a href="/login" class="login-btn"><i class="fa-regular fa-user"></i> Login</a>
+            <a href="/register" class="signup-btn">Sign Up</a>
+            <a href="/collector/login" class="collector-nav-btn"><i class="fa-solid fa-truck-pickup"></i> Collector Portal</a>
+            {% endif %}
+        </div>
+    </nav>
+
+    <section class="hero" id="home">
+        <div class="hero-content">
+            <h1>Smart Scrap Collection<br>for a <span>Cleaner Tomorrow</span></h1>
+            <p>WasteTech connects you with trusted scrap collectors. Select your scrap items, calculate live market payouts, and schedule instant doorstep pickups.</p>
+
+            <div class="hero-buttons">
+                <a href="/request-pickup" class="primary-btn"><i class="fa-regular fa-calendar"></i> Schedule a Pickup</a>
+                <a href="/scrap-prices" class="secondary-btn"><i class="fa-solid fa-tag"></i> Today's Scrap Rates</a>
+            </div>
+
+            <div class="stats">
+                <div class="stat"><i class="fa-solid fa-users"></i><div><h3>500+</h3><p>Happy Users</p></div></div>
+                <div class="stat"><i class="fa-solid fa-truck"></i><div><h3>1200+</h3><p>Pickups Completed</p></div></div>
+                <div class="stat"><i class="fa-solid fa-leaf"></i><div><h3>50+</h3><p>Tons Recycled</p></div></div>
+            </div>
+        </div>
+
+        <div class="hero-image">
+            <div class="recycle-symbol"><i class="fa-solid fa-recycle"></i></div>
+            <div class="truck"><i class="fa-solid fa-truck"></i></div>
+            <div class="scrap-icons">
+                <i class="fa-solid fa-laptop"></i>
+                <i class="fa-solid fa-mobile-screen"></i>
+                <i class="fa-solid fa-tv"></i>
+            </div>
+        </div>
+    </section>
+
+    <!-- LIVE SCRAP RATES OF THE DAY SECTION -->
+    <section class="live-rates-section" id="rates-section">
+        <div class="live-rates-header">
+            <div>
+                <h2><i class="fa-solid fa-chart-line"></i> Today's Live Scrap Market Rates</h2>
+                <p>Updated daily with guaranteed best market prices per kg/unit</p>
+            </div>
+            {% if scrap_data %}
+            <div class="live-date-badge">
+                <i class="fa-solid fa-circle-dot live-pulse"></i> Live Updated: <strong>{{ scrap_data.date_display }}</strong>
+            </div>
+            {% endif %}
+        </div>
+
+        {% if scrap_data %}
+        <div class="home-price-grid">
+            {% for item in scrap_data.flat_rates[:8] %}
+            <div class="home-price-card">
+                <div class="hpc-icon"><i class="fa-solid {{ item.icon }}"></i></div>
+                <div class="hpc-info">
+                    <h4>{{ item.name }}</h4>
+                    <span class="hpc-cat">{{ item.category }}</span>
+                    <div class="hpc-rate">
+                        ₹{{ "%.2f"|format(item.rate) }} <small>/ {{ item.unit }}</small>
+                    </div>
+                </div>
+            </div>
+            {% endfor %}
+        </div>
+        {% endif %}
+
+        <div class="rates-cta-bar">
+            <a href="/scrap-prices" class="secondary-btn"><i class="fa-solid fa-list-check"></i> View All Scrap Rates</a>
+            <a href="/request-pickup" class="primary-btn"><i class="fa-solid fa-calculator"></i> Calculate & Book Pickup</a>
+        </div>
+    </section>
+
+    <section class="how-it-works" id="how-it-works">
+        <h2>How It Works</h2>
+        <div class="title-line"></div>
+        <div class="steps">
+            <div class="step"><div class="step-icon"><i class="fa-solid fa-user-plus"></i></div><div><h3>1. Register</h3><p>Create your account in a few simple steps.</p></div></div>
+            <div class="arrow"><i class="fa-solid fa-arrow-right"></i></div>
+            <div class="step"><div class="step-icon"><i class="fa-solid fa-calendar-days"></i></div><div><h3>2. Schedule Pickup</h3><p>Choose a convenient date and time.</p></div></div>
+            <div class="arrow"><i class="fa-solid fa-arrow-right"></i></div>
+            <div class="step"><div class="step-icon"><i class="fa-solid fa-truck"></i></div><div><h3>3. We Collect</h3><p>A collector arrives and collects your scrap.</p></div></div>
+            <div class="arrow"><i class="fa-solid fa-arrow-right"></i></div>
+            <div class="step"><div class="step-icon"><i class="fa-solid fa-indian-rupee-sign"></i></div><div><h3>4. Get Paid</h3><p>Earn money for your valuable scrap.</p></div></div>
+        </div>
+    </section>
+
+    <section class="categories" id="services">
+        <h2>We Collect All Types of Scrap</h2>
+        <div class="title-line"></div>
+        <div class="category-grid">
+            <div class="category-card"><i class="fa-solid fa-laptop"></i><h3>E-Waste</h3><p>Electronics, mobiles, computers and more.</p></div>
+            <div class="category-card"><i class="fa-solid fa-layer-group"></i><h3>Metals</h3><p>Iron, copper, aluminium, steel and more.</p></div>
+            <div class="category-card"><i class="fa-solid fa-bottle-water"></i><h3>Plastics</h3><p>Bottles, containers and plastic materials.</p></div>
+            <div class="category-card"><i class="fa-solid fa-newspaper"></i><h3>Paper</h3><p>Newspapers, books, cardboard and more.</p></div>
+            <div class="category-card"><i class="fa-solid fa-box"></i><h3>Others</h3><p>Glass, wood, fabric and recyclable materials.</p></div>
+        </div>
+    </section>
+
+    <section class="features" id="about">
+        <div class="feature"><i class="fa-solid fa-shield-halved"></i><div><h3>Trusted & Verified</h3><p>All collectors are verified and trusted.</p></div></div>
+        <div class="feature"><i class="fa-solid fa-clock"></i><div><h3>Quick & Easy</h3><p>Schedule pickups with just a few clicks.</p></div></div>
+        <div class="feature"><i class="fa-solid fa-lock"></i><div><h3>Secure Payments</h3><p>Get paid securely for your scrap items.</p></div></div>
+        <div class="feature"><i class="fa-solid fa-leaf"></i><div><h3>Eco Friendly</h3><p>Promoting recycling for a cleaner environment.</p></div></div>
+    </section>
+
+    <footer id="contact">
+        <div>
+            <h2><i class="fa-solid fa-recycle"></i> WasteTech</h2>
+            <p>Smart Scrap Collection and Management System</p>
+        </div>
+        <p>© 2026 WasteTech. All Rights Reserved. | <a href="/admin" style="color: #64748b; font-size: 11px; text-decoration: none;">System Portal</a></p>
+    </footer>
+</body>
+</html>
+

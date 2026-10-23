@@ -1,0 +1,45 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Collector Login | WasteTech</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+</head>
+<body class="auth-body">
+    <div class="auth-card">
+        <a href="/" class="back-home-link"><i class="fa-solid fa-arrow-left"></i> Back to Home</a>
+
+        <div class="collector-badge-header">
+            <i class="fa-solid fa-truck-pickup"></i>
+            <h1>Collector Login</h1>
+        </div>
+
+        {% if success_message %}
+        <p class="auth-success">✓ {{ success_message }}</p>
+        {% endif %}
+
+        {% if message %}
+        <p class="auth-error">{{ message }}</p>
+        {% endif %}
+
+        {% if show_verify_link %}
+        <p class="auth-link" style="margin-bottom: 12px;"><a href="/collector/verify-otp">Click here to enter your OTP code</a></p>
+        {% endif %}
+
+        <form method="post" action="/collector/login">
+            <label for="username">Username or Email</label>
+            <input type="text" id="username" name="username" placeholder="Enter collector username or email" required>
+
+            <label for="password">Password</label>
+            <input type="password" id="password" name="password" placeholder="Enter password" required>
+
+            <button type="submit" class="collector-submit-btn"><i class="fa-solid fa-right-to-bracket"></i> Collector Login</button>
+        </form>
+
+        <p class="auth-link">New Collector? <a href="/collector/register">Register as Collector</a></p>
+        <p class="auth-link" style="margin-top: 6px;"><a href="/login">Normal User Login</a></p>
+    </div>
+</body>
+</html>

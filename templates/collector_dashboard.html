@@ -1,0 +1,436 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Collector Portal & Route Optimizer | WasteTech</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+    <style>
+        .collector-control-card { background: #ffffff; border-radius: 16px; padding: 24px; margin-bottom: 30px; box-shadow: 0 4px 20px rgba(0,0,0,0.05); border: 1px solid #e2e8f0; }
+        .route-optimizer-box { background: #1e293b; color: #ffffff; border-radius: 16px; padding: 24px; margin-bottom: 36px; box-shadow: 0 10px 30px rgba(0,0,0,0.15); }
+        .route-map-container { height: 320px; border-radius: 12px; margin: 16px 0; border: 2px solid #334155; }
+        .stop-pill { background: #334155; padding: 10px 14px; border-radius: 8px; font-size: 13px; margin-bottom: 8px; display: flex; justify-content: space-between; align-items: center; }
+        .stop-num { background: #10b981; color: #ffffff; width: 24px; height: 24px; border-radius: 50%; display: inline-flex; justify-content: center; align-items: center; font-weight: bold; margin-right: 8px; font-size: 12px; }
+        .nav-btn-gmaps { background: #4285f4; color: #ffffff; padding: 10px 18px; border-radius: 8px; text-decoration: none; font-weight: 600; display: inline-flex; align-items: center; gap: 8px; transition: background 0.2s; }
+        .nav-btn-gmaps:hover { background: #3367d6; color: #ffffff; }
+        .verify-modal-overlay { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.6); z-index: 9999; justify-content: center; align-items: center; }
+        .verify-modal-content { background: #ffffff; padding: 28px; border-radius: 16px; width: 90%; max-width: 550px; max-height: 90vh; overflow-y: auto; }
+        .actual-qty-input { width: 90px; padding: 6px 10px; border-radius: 6px; border: 1px solid #cbd5e1; text-align: center; font-weight: bold; }
+    </style>
+</head>
+<body>
+    <nav class="navbar">
+        <div class="logo">
+            <i class="fa-solid fa-truck-pickup"></i>
+            <div>
+                <h2>WasteTech Collector</h2>
+                <span>Partner Portal & Route Optimizer</span>
+            </div>
+        </div>
+
+        <div class="nav-links">
+            <a href="/collector/dashboard" class="active"><i class="fa-solid fa-gauge"></i> Dashboard</a>
+            <a href="#route-section"><i class="fa-solid fa-route"></i> Route Optimizer</a>
+            <a href="#pending-section"><i class="fa-solid fa-clock"></i> Available ({{ pending_pickups|length }})</a>
+            <a href="#assigned-section"><i class="fa-solid fa-clipboard-check"></i> Assignments ({{ my_pickups|length }})</a>
+        </div>
+
+        <div class="nav-buttons">
+            <span class="collector-user-badge"><i class="fa-solid fa-user-gear"></i> {{ collector.username }}</span>
+            <a href="/collector/logout" class="signup-btn"><i class="fa-solid fa-right-from-bracket"></i> Logout</a>
+        </div>
+    </nav>
+
+    <div class="dashboard-container">
+        <header class="dashboard-header">
+            <h1>Welcome back, <span>{{ collector.username }}</span>!</h1>
+            <p>View shortest route optimization, customer location maps, and manage verified scrap pickups.</p>
+        </header>
+
+        <!-- Collector Availability & Location Control Card -->
+        <div class="collector-control-card">
+            <form method="post" action="/collector/update-status" style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 16px;">
+                <div style="flex: 1; min-width: 250px;">
+                    <h3 style="margin: 0 0 6px; color: #1e293b;"><i class="fa-solid fa-location-dot" style="color: #10b981;"></i> Current Collector Location & Base</h3>
+                    <p style="margin: 0; font-size: 13px; color: #64748b;">
+                        {{ collector.address }} (Lat: <strong>{{ "%.4f"|format(collector.latitude) }}</strong>, Lng: <strong>{{ "%.4f"|format(collector.longitude) }}</strong>)
+                    </p>
+                </div>
+                
+                <div style="display: flex; align-items: center; gap: 12px;">
+                    <label for="availability_status" style="font-size: 13px; font-weight: 600; color: #334155;">Status:</label>
+                    <select id="availability_status" name="availability_status" style="padding: 8px 12px; border-radius: 8px; border: 1px solid #cbd5e1;">
+                        <option value="1" {% if collector.availability_status == 1 %}selected{% endif %}>🟢 Online / Available for Pickups</option>
+                        <option value="0" {% if collector.availability_status == 0 %}selected{% endif %}>🔴 Offline / Busy</option>
+                    </select>
+                    
+                    <input type="hidden" name="address" value="{{ collector.address }}">
+                    <input type="hidden" id="collector_lat" name="latitude" value="{{ collector.latitude }}">
+                    <input type="hidden" id="collector_lng" name="longitude" value="{{ collector.longitude }}">
+                    
+                    <button type="submit" class="primary-btn" style="padding: 8px 16px; font-size: 13px;">Save Status</button>
+                    <button type="button" class="secondary-btn" onclick="updateCollectorGPS()" style="padding: 8px 14px; font-size: 13px;">
+                        <i class="fa-solid fa-crosshairs"></i> Update Live GPS
+                    </button>
+                </div>
+            </form>
+        </div>
+
+        <div class="metrics-grid">
+            <div class="metric-card">
+                <i class="fa-solid fa-clock-rotate-left"></i>
+                <div>
+                    <h3>{{ pending_pickups|length }}</h3>
+                    <p>Available Requests</p>
+                </div>
+            </div>
+            <div class="metric-card">
+                <i class="fa-solid fa-truck-ramp-box"></i>
+                <div>
+                    <h3>{{ ordered_route|length }}</h3>
+                    <p>Active Route Pickups</p>
+                </div>
+            </div>
+            <div class="metric-card">
+                <i class="fa-solid fa-route"></i>
+                <div>
+                    <h3>{{ total_route_dist }} km</h3>
+                    <p>Total Shortest Route</p>
+                </div>
+            </div>
+        </div>
+
+        <!-- Section 0: Shortest Route Optimizer & Location Map -->
+        <section class="route-optimizer-box" id="route-section">
+            <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; margin-bottom: 16px;">
+                <div>
+                    <h2 style="margin: 0; color: #38bdf8;"><i class="fa-solid fa-route"></i> Shortest Route Planner (Nearest Neighbor TSP)</h2>
+                    <p style="margin: 4px 0 0; font-size: 13px; color: #94a3b8;">Automated optimal sequence of stops starting from your current location.</p>
+                </div>
+                {% if ordered_route %}
+                {% set origin_str = collector.latitude ~ "," ~ collector.longitude %}
+                {% set dest_str = ordered_route[-1].latitude ~ "," ~ ordered_route[-1].longitude %}
+                {% set waypoints_list = [] %}
+                {% for p in ordered_route[:-1] %}
+                    {% set _ = waypoints_list.append(p.latitude ~ "," ~ p.longitude) %}
+                {% endfor %}
+                {% set waypoints_str = waypoints_list|join('|') %}
+                <a href="https://www.google.com/maps/dir/?api=1&origin={{ origin_str }}&destination={{ dest_str }}&waypoints={{ waypoints_str }}" 
+                   target="_blank" class="nav-btn-gmaps">
+                    <i class="fa-solid fa-map-location-dot"></i> Start Shortest Route Navigation in Google Maps
+                </a>
+                {% endif %}
+            </div>
+
+            <!-- Leaflet Interactive Route Map -->
+            <div id="route-map" class="route-map-container"></div>
+
+            {% if ordered_route %}
+            <h4 style="margin: 16px 0 10px; color: #f1f5f9;"><i class="fa-solid fa-list-ol"></i> Sequential Pickup Stops (Total Distance: {{ total_route_dist }} km):</h4>
+            <div style="display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 12px;">
+                {% for stop in ordered_route %}
+                <div class="stop-pill">
+                    <div>
+                        <span class="stop-num">{{ loop.index }}</span>
+                        <strong>{{ stop.user_name }}</strong>
+                        <div style="font-size: 12px; color: #94a3b8; margin-top: 2px;">{{ stop.address[:35] }}...</div>
+                    </div>
+                    <div style="text-align: right;">
+                        <span style="color: #34d399; font-weight: bold;">+{{ stop.leg_distance_km }} km</span>
+                        <a href="https://www.google.com/maps/dir/?api=1&destination={{ stop.latitude }},{{ stop.longitude }}" target="_blank" style="color: #38bdf8; display: block; font-size: 11px; margin-top: 2px;">
+                            <i class="fa-solid fa-location-arrow"></i> Navigate
+                        </a>
+                    </div>
+                </div>
+                {% endfor %}
+            </div>
+            {% else %}
+            <p style="color: #94a3b8; font-size: 14px; margin: 10px 0 0;">No active assigned pickups to calculate route. Accept a pending request below to build your optimal collection route!</p>
+            {% endif %}
+        </section>
+
+        <!-- Section 1: Available Pending Pickups -->
+        <section class="requests-section" id="pending-section" style="margin-bottom: 50px;">
+            <h2><i class="fa-solid fa-bell"></i> Available Pickup Requests for Collection</h2>
+            
+            {% if pending_pickups %}
+            <div class="pickups-grid">
+                {% for p in pending_pickups %}
+                <div class="pickup-card collector-card">
+                    <div class="pickup-card-header">
+                        <div>
+                            <span class="pickup-id">Request #{{ p.id }}</span>
+                            <span class="pickup-user-tag"><i class="fa-regular fa-user"></i> {{ p.user_name }}</span>
+                        </div>
+                        <span class="status-badge pending"><i class="fa-solid fa-clock"></i> Pending</span>
+                    </div>
+
+                    <div class="pickup-card-body">
+                        <div class="pickup-items-table">
+                            <h4>Scrap Items to Collect:</h4>
+                            {% if p['items'] %}
+                            <ul>
+                                {% for item in p['items'] %}
+                                <li>
+                                    <span><strong>{{ item.name }}</strong> ({{ item.qty }} {{ item.unit }})</span>
+                                    <strong>₹{{ "%.2f"|format(item.subtotal) }}</strong>
+                                </li>
+                                {% endfor %}
+                            </ul>
+                            {% else %}
+                            <p class="no-items-text">General scrap collection.</p>
+                            {% endif %}
+                        </div>
+
+                        <div class="pickup-details-col">
+                            <p><strong><i class="fa-regular fa-calendar"></i> Pickup Date:</strong> {{ p.pickup_date }}</p>
+                            <p><strong><i class="fa-regular fa-clock"></i> Time Slot:</strong> {{ p.time_slot }}</p>
+                            <p><strong><i class="fa-solid fa-phone"></i> Customer Phone:</strong> {{ p.phone }}</p>
+                            <p><strong><i class="fa-solid fa-location-dot"></i> Address:</strong> {{ p.address }}</p>
+                            {% if p.notes %}
+                            <p><strong><i class="fa-solid fa-note-sticky"></i> Notes:</strong> {{ p.notes }}</p>
+                            {% endif %}
+
+                            <div class="pickup-total-box">
+                                <span>Estimated Payout:</span>
+                                <strong class="total-amount">₹{{ "%.2f"|format(p.total_price) }}</strong>
+                            </div>
+
+                            <div style="display: flex; gap: 8px; margin-top: 14px;">
+                                <a href="https://www.google.com/maps/dir/?api=1&destination={{ p.latitude }},{{ p.longitude }}" target="_blank" class="secondary-btn" style="flex: 1; text-align: center; text-decoration: none; font-size: 13px;">
+                                    <i class="fa-solid fa-map-location-dot"></i> Map Location
+                                </a>
+                                <form method="post" action="/collector/accept-pickup/{{ p.id }}" style="flex: 1;">
+                                    <button type="submit" class="accept-pickup-btn" style="width: 100%;"><i class="fa-solid fa-check"></i> Accept</button>
+                                </form>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                {% endfor %}
+            </div>
+            {% else %}
+            <div class="no-requests-box">
+                <i class="fa-solid fa-box-open"></i>
+                <h3>No pending pickup requests right now</h3>
+                <p>New user pickup schedules will appear here automatically.</p>
+            </div>
+            {% endif %}
+        </section>
+
+        <!-- Section 2: My Accepted / Completed Assignments -->
+        <section class="requests-section" id="assigned-section">
+            <h2><i class="fa-solid fa-clipboard-list"></i> My Accepted Assignments & Verification</h2>
+            
+            {% if my_pickups %}
+            <div class="pickups-grid">
+                {% for p in my_pickups %}
+                <div class="pickup-card collector-card">
+                    <div class="pickup-card-header">
+                        <div>
+                            <span class="pickup-id">Request #{{ p.id }}</span>
+                            <span class="pickup-user-tag"><i class="fa-regular fa-user"></i> {{ p.user_name }}</span>
+                        </div>
+                        {% if p.status == 'Assigned' %}
+                        <span class="status-badge assigned"><i class="fa-solid fa-truck-ramp-box"></i> In Progress ({{ p.distance_km }} km)</span>
+                        {% elif p.status == 'Completed' %}
+                        <span class="status-badge completed"><i class="fa-solid fa-circle-check"></i> Completed & Paid</span>
+                        {% endif %}
+                    </div>
+
+                    <div class="pickup-card-body">
+                        <div class="pickup-items-table">
+                            <h4>Items Breakdown:</h4>
+                            {% if p['items'] %}
+                            <ul>
+                                {% for item in p['items'] %}
+                                <li>
+                                    <span><strong>{{ item.name }}</strong> ({{ item.qty }} {{ item.unit }})</span>
+                                    <strong>₹{{ "%.2f"|format(item.subtotal) }}</strong>
+                                </li>
+                                {% endfor %}
+                            </ul>
+                            {% endif %}
+                        </div>
+
+                        <div class="pickup-details-col">
+                            <p><strong><i class="fa-regular fa-calendar"></i> Date & Slot:</strong> {{ p.pickup_date }} ({{ p.time_slot }})</p>
+                            <p><strong><i class="fa-solid fa-phone"></i> Customer Phone:</strong> {{ p.phone }}</p>
+                            <p><strong><i class="fa-solid fa-location-dot"></i> Address:</strong> {{ p.address }}</p>
+
+                            <div class="pickup-total-box">
+                                {% if p.status == 'Completed' %}
+                                <span>Verified Final Amount:</span>
+                                <strong class="total-amount" style="color: #10b981;">₹{{ "%.2f"|format(p.final_amount) }}</strong>
+                                {% else %}
+                                <span>Estimated Amount:</span>
+                                <strong class="total-amount">₹{{ "%.2f"|format(p.total_price) }}</strong>
+                                {% endif %}
+                            </div>
+
+                            <div style="display: flex; gap: 8px; margin-top: 14px;">
+                                <a href="https://www.google.com/maps/dir/?api=1&destination={{ p.latitude }},{{ p.longitude }}" target="_blank" class="secondary-btn" style="flex: 1; text-align: center; text-decoration: none; font-size: 12px;">
+                                    <i class="fa-solid fa-location-arrow"></i> Navigate
+                                </a>
+
+                                {% if p.status == 'Assigned' %}
+                                <button type="button" class="complete-pickup-btn" style="flex: 1.5; font-size: 12px;" onclick='openVerifyModal({{ p.id }}, {{ p.items|tojson }})'>
+                                    <i class="fa-solid fa-scale-balanced"></i> Verify & Complete
+                                </button>
+                                {% endif %}
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                {% endfor %}
+            </div>
+            {% else %}
+            <div class="no-requests-box">
+                <i class="fa-solid fa-folder-open"></i>
+                <h3>No active assignments</h3>
+                <p>Accept a pending pickup request above to start managing your collections.</p>
+            </div>
+            {% endif %}
+        </section>
+    </div>
+
+    <!-- On-Site Scrap Verification Modal -->
+    <div class="verify-modal-overlay" id="verify-modal">
+        <div class="verify-modal-content">
+            <h2 style="margin-top: 0; color: #1e293b;"><i class="fa-solid fa-scale-balanced" style="color: #10b981;"></i> On-Site Weight Verification</h2>
+            <p style="font-size: 13px; color: #64748b; margin-bottom: 20px;">Inspect the scrap items, enter actual weighed quantities, and auto-calculate final payout.</p>
+
+            <form method="post" id="verify-form" action="">
+                <input type="hidden" id="actual_items_json" name="actual_items_json" value="[]">
+
+                <div id="verify-items-list" style="margin-bottom: 20px;"></div>
+
+                <div style="background: #f8fafc; padding: 14px; border-radius: 10px; display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; border: 1px solid #e2e8f0;">
+                    <span style="font-weight: 600;">Verified Total Payout:</span>
+                    <strong id="modal-final-total" style="font-size: 20px; color: #10b981;">₹0.00</strong>
+                </div>
+
+                <div style="display: flex; gap: 10px;">
+                    <button type="button" class="secondary-btn" style="flex: 1;" onclick="closeVerifyModal()">Cancel</button>
+                    <button type="submit" class="accept-pickup-btn" style="flex: 2;"><i class="fa-solid fa-circle-check"></i> Complete Collection & Pay</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <script>
+        const collectorLat = {{ collector.latitude or 12.9716 }};
+        const collectorLng = {{ collector.longitude or 77.5946 }};
+        const routePickups = {{ ordered_route|tojson }};
+
+        // Render Leaflet Route Map
+        const map = L.map('route-map').setView([collectorLat, collectorLng], 12);
+        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+            maxZoom: 19,
+            attribution: '© OpenStreetMap'
+        }).addTo(map);
+
+        // Collector Marker (Blue)
+        const collectorIcon = L.divIcon({
+            html: '<div style="background:#2563eb;color:#fff;width:32px;height:32px;border-radius:50%;display:flex;justify-content:center;align-items:center;box-shadow:0 0 10px rgba(0,0,0,0.5);"><i class="fa-solid fa-truck"></i></div>',
+            className: ''
+        });
+        L.marker([collectorLat, collectorLng], { icon: collectorIcon }).addTo(map).bindPopup("<b>Collector Location (Start)</b>");
+
+        const routePoints = [[collectorLat, collectorLng]];
+
+        routePickups.forEach((p, idx) => {
+            if (p.latitude && p.longitude) {
+                routePoints.push([p.latitude, p.longitude]);
+                const stopIcon = L.divIcon({
+                    html: `<div style="background:#10b981;color:#fff;width:28px;height:28px;border-radius:50%;display:flex;justify-content:center;align-items:center;font-weight:bold;font-size:12px;box-shadow:0 0 8px rgba(0,0,0,0.3);">${idx+1}</div>`,
+                    className: ''
+                });
+                L.marker([p.latitude, p.longitude], { icon: stopIcon }).addTo(map)
+                 .bindPopup(`<b>Stop ${idx+1}: ${p.user_name}</b><br>${p.address}<br><b>Payout: ₹${p.total_price.toFixed(2)}</b>`);
+            }
+        });
+
+        if (routePoints.length > 1) {
+            const polyline = L.polyline(routePoints, { color: '#38bdf8', weight: 4, dashArray: '6, 8' }).addTo(map);
+            map.fitBounds(polyline.getBounds(), { padding: [30, 30] });
+        }
+
+        function updateCollectorGPS() {
+            if (navigator.geolocation) {
+                navigator.geolocation.getCurrentPosition(
+                    (pos) => {
+                        document.getElementById('collector_lat').value = pos.coords.latitude.toFixed(6);
+                        document.getElementById('collector_lng').value = pos.coords.longitude.toFixed(6);
+                        alert("✓ Live GPS coordinates captured! Click 'Save Status' to update.");
+                    },
+                    () => alert("GPS detection unavailable.")
+                );
+            }
+        }
+
+        // On-Site Verification Modal Logic
+        let currentModalItems = [];
+
+        function openVerifyModal(pickupId, items) {
+            currentModalItems = items;
+            const modal = document.getElementById('verify-modal');
+            const form = document.getElementById('verify-form');
+            form.action = '/collector/verify-pickup/' + pickupId;
+
+            const listContainer = document.getElementById('verify-items-list');
+            let html = '';
+
+            items.forEach((it, idx) => {
+                html += `
+                    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px; background: #f8fafc; padding: 10px 14px; border-radius: 8px;">
+                        <div>
+                            <strong>${it.name}</strong>
+                            <div style="font-size: 12px; color: #64748b;">Rate: ₹${it.rate.toFixed(2)} / ${it.unit} (Est: ${it.qty} ${it.unit})</div>
+                        </div>
+                        <div style="display: flex; align-items: center; gap: 6px;">
+                            <label style="font-size: 12px;">Actual ${it.unit}s:</label>
+                            <input type="number" step="0.1" min="0" value="${it.qty}" class="actual-qty-input" id="act-qty-${idx}" oninput="recalcModalTotal()">
+                        </div>
+                    </div>`;
+            });
+
+            listContainer.innerHTML = html;
+            recalcModalTotal();
+            modal.style.display = 'flex';
+        }
+
+        function closeVerifyModal() {
+            document.getElementById('verify-modal').style.display = 'none';
+        }
+
+        function recalcModalTotal() {
+            let total = 0;
+            const updatedItems = [];
+
+            currentModalItems.forEach((it, idx) => {
+                const inp = document.getElementById('act-qty-' + idx);
+                const actualQty = parseFloat(inp ? inp.value : 0) || 0;
+                const subtotal = actualQty * it.rate;
+                total += subtotal;
+
+                updatedItems.push({
+                    code: it.code,
+                    name: it.name,
+                    category: it.category,
+                    qty: actualQty,
+                    unit: it.unit,
+                    rate: it.rate,
+                    subtotal: subtotal
+                });
+            });
+
+            document.getElementById('modal-final-total').innerText = '₹' + total.toFixed(2);
+            document.getElementById('actual_items_json').value = JSON.stringify(updatedItems);
+        }
+    </script>
+</body>
+</html>
